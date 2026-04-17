@@ -8,6 +8,8 @@ pub enum RunState {
     MainMenu { selection: main_menu::MainMenuSelection },
     CharacterCreation,
     MapGen,
-    InGame,
+    AwaitingInput,
+    PlayerTurn,
+    MonsterTurn,
     Laboratory,
 }
