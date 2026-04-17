@@ -1,7 +1,7 @@
 use bracket_lib::prelude::*;
 use serde::{Deserialize, Serialize};
 
-#[derive(PartialEq, Copy, Clone, Serialize, Deserialize)]
+#[derive(PartialEq, Copy, Clone, Serialize, Deserialize, Debug)]
 pub enum TileType {
     Wall,
     Floor,

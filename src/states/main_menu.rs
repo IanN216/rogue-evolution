@@ -8,7 +8,9 @@ pub enum MainMenuSelection {
     Quit,
 }
 
-pub fn tick(ctx: &mut BTerm) -> Option<RunState> {
+use crate::core::world::WorldManager;
+
+pub fn tick(ctx: &mut BTerm, world_manager: &mut WorldManager) -> Option<RunState> {
     ctx.set_active_console(1); // HUD / UI Layer
     ctx.cls();
 
@@ -29,7 +31,10 @@ pub fn tick(ctx: &mut BTerm) -> Option<RunState> {
     match ctx.key {
         None => None,
         Some(key) => match key {
-            VirtualKeyCode::N => Some(RunState::MapGen),
+            VirtualKeyCode::N => {
+                world_manager.clear();
+                Some(RunState::MapGen)
+            }
             VirtualKeyCode::L => Some(RunState::Laboratory),
             VirtualKeyCode::Q => {
                 std::process::exit(0);

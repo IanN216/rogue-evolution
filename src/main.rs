@@ -6,15 +6,19 @@ mod utils;
 
 use bracket_lib::prelude::*;
 use states::{RunState, main_menu};
+use crate::core::world::WorldManager;
+use crate::core::chronometry::TimeState;
 
 struct State {
     pub run_state: RunState,
+    pub world_manager: WorldManager,
+    pub time_state: TimeState,
 }
 
 impl GameState for State {
     fn tick(&mut self, ctx: &mut BTerm) {
         let new_runstate = match self.run_state {
-            RunState::MainMenu { .. } => states::main_menu::tick(ctx),
+            RunState::MainMenu { .. } => states::main_menu::tick(ctx, &mut self.world_manager),
             RunState::CharacterCreation => {
                 ctx.set_active_console(1);
                 ctx.cls();
@@ -26,9 +30,9 @@ impl GameState for State {
                     None
                 }
             }
-            RunState::MapGen => states::map_gen_screen::tick(ctx),
-            RunState::InGame => states::ingame::tick(ctx),
-            RunState::Laboratory => states::laboratory::tick(ctx),
+            RunState::MapGen => states::map_gen_screen::tick(ctx, &mut self.world_manager),
+            RunState::InGame => states::ingame::tick(ctx, &mut self.world_manager, &mut self.time_state),
+            RunState::Laboratory => states::laboratory::tick(ctx, &mut self.world_manager),
         };
 
         if let Some(new_state) = new_runstate {
@@ -49,6 +53,8 @@ fn main() -> BError {
 
     let gs = State {
         run_state: RunState::MainMenu { selection: main_menu::MainMenuSelection::NewGame },
+        world_manager: WorldManager::new(),
+        time_state: TimeState::new(),
     };
     main_loop(context, gs)
 }

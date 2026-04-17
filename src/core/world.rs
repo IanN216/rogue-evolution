@@ -22,6 +22,12 @@ impl WorldManager {
         }
     }
 
+    /// Vacía el mundo de entidades y reinicia el mapa (útil al volver al menú principal)
+    pub fn clear(&mut self) {
+        self.world = World::new();
+        self.world_map = WorldMap::new();
+    }
+
     /// Sistema de movimiento masivo optimizado para Celeron (Batching + Rayon)
     pub fn update_movement(&mut self) {
         let query = self.world.query_mut::<(&mut Position, &BaseStats)>();

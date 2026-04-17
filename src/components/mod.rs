@@ -4,3 +4,4 @@ pub mod identity;
 pub mod kingdom;
 pub mod progression;
 pub mod items;
+pub mod ai;

@@ -1,7 +1,9 @@
 use bracket_lib::prelude::*;
 use super::RunState;
 
-pub fn tick(ctx: &mut BTerm) -> Option<RunState> {
+use crate::core::world::WorldManager;
+
+pub fn tick(ctx: &mut BTerm, _world_manager: &mut WorldManager) -> Option<RunState> {
     ctx.set_active_console(1);
     ctx.cls();
     ctx.print_centered(25, "Laboratory State - Experimental biological engineering in progress...");
