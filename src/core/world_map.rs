@@ -38,7 +38,10 @@ pub struct RegionData {
     pub entities: Vec<EntitySnapshot>,
 }
 
+use crate::core::map::Map;
+
 pub struct WorldMap {
+    pub map: Map,
     pub regions: HashMap<(i32, i32), RegionData>,
     pub loaded_regions: HashSet<(i32, i32)>,
 }
@@ -46,6 +49,7 @@ pub struct WorldMap {
 impl WorldMap {
     pub fn new() -> Self {
         Self {
+            map: Map::new(80, 50),
             regions: HashMap::new(),
             loaded_regions: HashSet::new(),
         }
