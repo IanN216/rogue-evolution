@@ -21,5 +21,5 @@ impl Genetics {
     }
 }
 
-#[derive(Clone, Copy, Debug, PartialEq)]
+#[derive(Clone, Copy, Debug, PartialEq, Serialize, Deserialize)]
 pub struct PlagueMember; // Marker for the evolved archetype

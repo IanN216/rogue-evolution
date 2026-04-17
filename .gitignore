@@ -1,1 +1,24 @@
+# Rust
 /target
+**/*.rs.bk
+
+# IDEs
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Project Specific
+/saves/
+/target/
+
+# Logs
+*.log
+
+# Backup and temp files
+*.bak
+*.tmp

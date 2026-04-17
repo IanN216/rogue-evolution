@@ -1,4 +1,6 @@
-#[derive(Clone, Debug, PartialEq)]
+use serde::{Deserialize, Serialize};
+
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub struct KingdomState {
     pub name: String,
     pub resources: f32,
@@ -7,7 +9,7 @@ pub struct KingdomState {
     pub is_active: bool,
 }
 
-#[derive(Clone, Copy, Debug, PartialEq)]
+#[derive(Clone, Copy, Debug, PartialEq, Serialize, Deserialize)]
 pub enum KingdomRole {
     Citizen,
     Soldier,
@@ -17,13 +19,13 @@ pub enum KingdomRole {
     ExperimentSubject,
 }
 
-#[derive(Clone, Copy, Debug, PartialEq)]
+#[derive(Clone, Copy, Debug, PartialEq, Serialize, Deserialize)]
 pub struct KingdomMember {
     pub kingdom_id: u32,
     pub role: KingdomRole,
 }
 
-#[derive(Clone, Copy, Debug, PartialEq)]
+#[derive(Clone, Copy, Debug, PartialEq, Serialize, Deserialize)]
 pub struct HordeLeader;
 
 #[derive(Clone, Copy, Debug, PartialEq)]

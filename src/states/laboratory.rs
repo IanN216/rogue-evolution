@@ -2,15 +2,10 @@ use bracket_lib::prelude::*;
 use super::RunState;
 
 pub fn tick(ctx: &mut BTerm) -> Option<RunState> {
-    ctx.set_active_console(0);
-    ctx.cls();
-    ctx.print(1, 1, "InGame State - Simulation Running...");
-
     ctx.set_active_console(1);
     ctx.cls();
-    ctx.draw_hollow_box(0, 40, 79, 9, RGB::named(WHITE), RGB::named(BLACK));
-    ctx.print(2, 42, "HUD: HP: 100/100 | Level: 1 | Pos: (0,0)");
-    ctx.print(2, 44, "Press [M] to return to Main Menu");
+    ctx.print_centered(25, "Laboratory State - Experimental biological engineering in progress...");
+    ctx.print_centered(27, "Press [M] to return to Main Menu");
 
     match ctx.key {
         None => None,
