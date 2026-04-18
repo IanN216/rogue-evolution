@@ -12,7 +12,7 @@ pub fn tick(ctx: &mut BTerm, _world_manager: &mut WorldManager) -> Option<RunSta
     match ctx.key {
         None => None,
         Some(key) => match key {
-            VirtualKeyCode::M => Some(RunState::MainMenu { selection: super::main_menu::MainMenuSelection::NewGame }),
+            VirtualKeyCode::M => Some(RunState::MainMenu { selection: crate::states::MainMenuSelection::NewGame }),
             _ => None,
         },
     }

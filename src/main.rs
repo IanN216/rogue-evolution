@@ -5,7 +5,7 @@ mod systems;
 mod utils;
 
 use bracket_lib::prelude::*;
-use states::{RunState, main_menu, map_inspector};
+use states::RunState;
 use crate::core::world::WorldManager;
 use crate::core::chronometry::TimeState;
 

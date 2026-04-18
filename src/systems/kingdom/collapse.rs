@@ -1,5 +1,5 @@
-use crate::components::kingdom::{KingdomState, KingdomRole, KingdomMember};
-use hecs::{World, Entity};
+use crate::components::kingdom::{KingdomRole, KingdomMember};
+use hecs::World;
 
 pub fn handle_kingdom_collapse(world: &mut World, fallen_kingdom_id: u32, conqueror_kingdom_id: u32) {
     let mut changes = Vec::new();

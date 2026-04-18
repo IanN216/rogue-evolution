@@ -3,7 +3,7 @@ use rayon::prelude::*;
 use crate::components::stats::{BaseStats, Metabolism};
 
 pub fn process_metabolism(world: &mut World) {
-    let mut query = world.query_mut::<(&mut BaseStats, &mut Metabolism)>();
+    let query = world.query_mut::<(&mut BaseStats, &mut Metabolism)>();
     
     // Batching with Rayon for the 2-core Celeron
     let mut targets: Vec<(&mut BaseStats, &mut Metabolism)> = query

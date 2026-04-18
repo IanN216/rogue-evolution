@@ -11,7 +11,7 @@ pub fn tick(ctx: &mut BTerm, world_manager: &mut WorldManager, zoom: f32, cursor
     let mut current_zoom = zoom;
 
     // Viewport calculation based on zoom
-    let map = &world_manager.world_map.regions[0].map; // Simplicity for now
+    let map = &world_manager.world_map.map; 
     let view_w = (80.0 / current_zoom) as i32;
     let view_h = (50.0 / current_zoom) as i32;
     
@@ -60,8 +60,8 @@ pub fn tick(ctx: &mut BTerm, world_manager: &mut WorldManager, zoom: f32, cursor
     if let Some(key) = ctx.key {
         match key {
             VirtualKeyCode::Escape => return Some(RunState::MainMenu { selection: crate::states::MainMenuSelection::NewGame }),
-            VirtualKeyCode::Plus | VirtualKeyCode::Add => current_zoom += 0.1,
-            VirtualKeyCode::Minus | VirtualKeyCode::Subtract => if current_zoom > 0.5 { current_zoom -= 0.1 },
+            VirtualKeyCode::Plus | VirtualKeyCode::NumpadAdd => current_zoom += 0.1,
+            VirtualKeyCode::Minus | VirtualKeyCode::NumpadSubtract => if current_zoom > 0.5 { current_zoom -= 0.1 },
             VirtualKeyCode::Up => cursor_y -= 1,
             VirtualKeyCode::Down => cursor_y += 1,
             VirtualKeyCode::Left => cursor_x -= 1,

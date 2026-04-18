@@ -52,7 +52,7 @@ pub fn tick(ctx: &mut BTerm, world_manager: &mut WorldManager, time_state: &mut 
 }
 
 fn try_move_player(dx: i32, dy: i32, world_manager: &mut WorldManager) -> Option<RunState> {
-    let mut query = world_manager.world.query_mut::<(&mut Position, &mut Viewshed, &Identity)>();
+    let query = world_manager.world.query_mut::<(&mut Position, &mut Viewshed, &Identity)>();
     for (_entity, (pos, viewshed, id)) in query {
         if id.name == "Hero" {
             let new_x = pos.x + dx;
