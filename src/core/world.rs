@@ -1,5 +1,5 @@
 use hecs::World;
-use rayon::prelude::*;
+use bracket_lib::prelude::*;
 use crate::components::stats::{Position, BaseStats, Renderable, Viewshed, Metabolism};
 use crate::components::genetics::Genetics;
 use crate::components::identity::Identity;
@@ -100,7 +100,7 @@ impl WorldManager {
             let _ = self.world.despawn(entity);
         }
 
-        // Carga de regiones optimizada: Un solo spawn por entidad para evitar archetype migration masivo
+        // Carga de regiones optimizada: Spawn agrupado para evitar archetype migration masivo
         for dx in -2..=2 {
             for dy in -2..=2 {
                 let rx = px + dx;
@@ -108,18 +108,18 @@ impl WorldManager {
                 if (dx*dx + dy*dy) <= 4 && !self.world_map.loaded_regions.contains(&(rx, ry)) {
                     if let Ok(region) = load_region(rx, ry) {
                         for snp in region.entities {
-                            // Hecs optimiza mejor los spawns si pasamos los componentes como una tupla única.
-                            // Esto evita múltiples inserciones y movimientos de memoria.
-                            // Nota: Los Option<T> no funcionan directamente en la tupla de spawn de hecs para componentes opcionales,
-                            // por lo que usamos un patrón de 'Dynamic Component Bag'.
-                            
-                            let mut e = self.world.spawn((snp.position,));
-                            // Agregamos componentes solo si existen, pero hecs agrupará la entidad en su arquetipo final.
-                            if let Some(c) = snp.renderable { self.world.insert_one(e, c).unwrap(); }
-                            if let Some(c) = snp.base_stats { self.world.insert_one(e, c).unwrap(); }
+                            // Usamos una tupla de componentes comunes para que nazca en un arquetipo estable.
+                            // Esto es mucho más rápido para el caché del Celeron.
+                            let e = self.world.spawn((
+                                snp.position,
+                                snp.renderable.unwrap_or(Renderable { glyph: to_cp437('?'), fg: RGB::named(RED), bg: RGB::named(BLACK) }),
+                                snp.base_stats.unwrap_or(BaseStats { hp: 1, max_hp: 1, attack: 0, defense: 0 }),
+                                snp.identity.unwrap_or(Identity { name: "Unknown".to_string(), title: None, kingdom_id: 0 }),
+                            ));
+
+                            // Solo usamos insert_one para componentes variables o de menor frecuencia
                             if let Some(c) = snp.viewshed { self.world.insert_one(e, c).unwrap(); }
                             if let Some(c) = snp.genetics { self.world.insert_one(e, c).unwrap(); }
-                            if let Some(c) = snp.identity { self.world.insert_one(e, c).unwrap(); }
                             if let Some(c) = snp.kingdom_member { self.world.insert_one(e, c).unwrap(); }
                             if let Some(c) = snp.metabolism { self.world.insert_one(e, c).unwrap(); }
                             if let Some(c) = snp.experience { self.world.insert_one(e, c).unwrap(); }

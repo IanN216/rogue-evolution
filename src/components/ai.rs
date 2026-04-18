@@ -1,4 +1,5 @@
 use bracket_lib::prelude::*;
+use std::sync::Arc;
 
 #[derive(Clone, Debug)]
 pub struct HordeTarget {
@@ -6,6 +7,6 @@ pub struct HordeTarget {
 }
 
 pub struct DijkstraCache {
-    pub map: DijkstraMap,
+    pub map: Arc<DijkstraMap>,
     pub target_pos: Point,
 }

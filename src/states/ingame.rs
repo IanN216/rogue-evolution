@@ -91,14 +91,20 @@ fn render(ctx: &mut BTerm, world_manager: &mut WorldManager, player_pos: Positio
             let world_x = x + offset_x;
             let world_y = y + offset_y;
             
-            if world_x >= 0 && world_x < world_manager.world_map.map.width && world_y >= 0 && world_y < world_manager.world_map.map.height {
+            // Sugerencia: Guardas de seguridad robustas para el Celeron
+            if world_x >= 0 && world_x < world_manager.world_map.map.width && 
+               world_y >= 0 && world_y < world_manager.world_map.map.height {
+                
                 if visible_tiles.contains(&(world_x, world_y)) {
                     let idx = world_manager.world_map.map.xy_idx(world_x, world_y);
-                    let (glyph, fg) = match world_manager.world_map.map.tiles[idx] {
-                        TileType::Floor => (to_cp437('.'), RGB::named(DARK_GRAY)),
-                        TileType::Wall => (to_cp437('#'), RGB::named(GREEN)),
-                    };
-                    ctx.set(x, y, fg, RGB::named(BLACK), glyph);
+                    // Acceso seguro al vector plano (DOD)
+                    if let Some(tile) = world_manager.world_map.map.tiles.get(idx) {
+                        let (glyph, fg) = match tile {
+                            TileType::Floor => (to_cp437('.'), RGB::named(DARK_GRAY)),
+                            TileType::Wall => (to_cp437('#'), RGB::named(GREEN)),
+                        };
+                        ctx.set(x, y, fg, RGB::named(BLACK), glyph);
+                    }
                 }
             }
         }
