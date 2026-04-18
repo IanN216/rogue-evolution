@@ -32,7 +32,7 @@ pub fn tick(ctx: &mut BTerm, world_manager: &mut WorldManager, time_state: &mut 
                     VirtualKeyCode::Right | VirtualKeyCode::L | VirtualKeyCode::Numpad6 => return try_move_player(1, 0, world_manager),
                     VirtualKeyCode::Up | VirtualKeyCode::K | VirtualKeyCode::Numpad8 => return try_move_player(0, -1, world_manager),
                     VirtualKeyCode::Down | VirtualKeyCode::J | VirtualKeyCode::Numpad2 => return try_move_player(0, 1, world_manager),
-                    VirtualKeyCode::M => return Some(RunState::MainMenu { selection: super::main_menu::MainMenuSelection::NewGame }),
+                    VirtualKeyCode::M => return Some(RunState::MainMenu { selection: crate::states::MainMenuSelection::NewGame }),
                     _ => {}
                 }
             }

@@ -5,7 +5,7 @@ mod systems;
 mod utils;
 
 use bracket_lib::prelude::*;
-use states::{RunState, main_menu};
+use states::{RunState, main_menu, map_inspector};
 use crate::core::world::WorldManager;
 use crate::core::chronometry::TimeState;
 
@@ -18,14 +18,14 @@ struct State {
 impl GameState for State {
     fn tick(&mut self, ctx: &mut BTerm) {
         let new_runstate = match self.run_state {
-            RunState::MainMenu { .. } => states::main_menu::tick(ctx, &mut self.world_manager),
+            RunState::MainMenu { selection } => states::main_menu::tick(ctx, &mut self.world_manager, selection),
             RunState::CharacterCreation => {
                 ctx.set_active_console(1);
                 ctx.cls();
                 ctx.print_centered(25, "Character Creation - Not yet implemented");
                 ctx.print_centered(27, "Press [M] to return to Main Menu");
                 if let Some(VirtualKeyCode::M) = ctx.key {
-                    Some(RunState::MainMenu { selection: main_menu::MainMenuSelection::NewGame })
+                    Some(RunState::MainMenu { selection: states::MainMenuSelection::NewGame })
                 } else {
                     None
                 }
@@ -35,6 +35,7 @@ impl GameState for State {
                 states::ingame::tick(ctx, &mut self.world_manager, &mut self.time_state, self.run_state)
             }
             RunState::Laboratory => states::laboratory::tick(ctx, &mut self.world_manager),
+            RunState::MapInspector { zoom, cursor } => states::map_inspector::tick(ctx, &mut self.world_manager, zoom, cursor),
         };
 
         if let Some(new_state) = new_runstate {
@@ -54,7 +55,7 @@ fn main() -> BError {
         .build()?;
 
     let gs = State {
-        run_state: RunState::MainMenu { selection: main_menu::MainMenuSelection::NewGame },
+        run_state: RunState::MainMenu { selection: states::MainMenuSelection::NewGame },
         world_manager: WorldManager::new(),
         time_state: TimeState::new(),
     };

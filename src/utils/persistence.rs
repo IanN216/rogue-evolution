@@ -16,6 +16,9 @@ pub fn save_region_async(region: RegionData) {
     });
 }
 
+const MAGIC_NUMBER: [u8; 4] = [0x52, 0x4F, 0x47, 0x55]; // "ROGU"
+const VERSION: u8 = 1;
+
 pub fn save_region(region: &RegionData) -> Result<(), Box<dyn std::error::Error>> {
     let filename = get_region_filename(region.x, region.y);
     let path = Path::new("saves").join(filename);
@@ -33,7 +36,9 @@ pub fn save_region(region: &RegionData) -> Result<(), Box<dyn std::error::Error>
     }
 
     let mut file = File::create(path)?;
-    file.write_all(&[checksum])?; // Write checksum first
+    file.write_all(&MAGIC_NUMBER)?; // Magic Number
+    file.write_all(&[VERSION])?;    // Version
+    file.write_all(&[checksum])?;   // Checksum
     file.write_all(&encoded)?;
     
     Ok(())
@@ -47,12 +52,20 @@ pub fn load_region(x: i32, y: i32) -> Result<RegionData, Box<dyn std::error::Err
     let mut data = Vec::new();
     file.read_to_end(&mut data)?;
 
-    if data.len() < 1 {
-        return Err("File too small".into());
+    if data.len() < 6 { // Magic (4) + Version (1) + Checksum (1)
+        return Err("File too small or invalid header".into());
     }
 
-    let stored_checksum = data[0];
-    let encoded = &data[1..];
+    if data[0..4] != MAGIC_NUMBER {
+        return Err("Invalid Magic Number - Not a Rogue-Evolution save".into());
+    }
+
+    if data[4] != VERSION {
+        return Err(format!("Incompatible version: expected {}, found {}", VERSION, data[4]).into());
+    }
+
+    let stored_checksum = data[5];
+    let encoded = &data[6..];
 
     let mut checksum: u8 = 0;
     for &byte in encoded {
