@@ -7,6 +7,6 @@
 3. **Manejo de "Tiles Huérfanos"**: Si un tile de suelo queda aislado por muros, el sistema debe convertirlo automáticamente en muro o abrir un túnel.
 
 ## Criterios de Aceptación (100%)
-- [ ] El mapa se genera sin áreas cerradas inaccesibles.
-- [ ] El código usa `flat vectors` para el mapa (DOD) para ahorrar memoria.
-- [ ] No existen comentarios "TODO" en la lógica de generación.
+- [x] El mapa se genera sin áreas cerradas inaccesibles.
+- [x] El código usa `flat vectors` para el mapa (DOD) para ahorrar memoria.
+- [x] No existen comentarios "TODO" en la lógica de generación.

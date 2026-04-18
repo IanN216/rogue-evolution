@@ -34,7 +34,8 @@ pub fn generate_caverns(width: i32, height: i32, seed: u64) -> Map {
         map.tiles = new_tiles;
     }
 
-    ensure_connectivity(&mut map);
+    let start_idx = map.xy_idx(width / 2, height / 2);
+    ensure_connectivity(&mut map, start_idx);
     map.populate_blocked();
     map
 }
@@ -52,7 +53,7 @@ fn count_neighbors_static(tiles: &[TileType], width: i32, x: i32, y: i32) -> usi
     neighbors
 }
 
-/// Implementación del Spec-11: Drunkard's Walk Regional
+/// Implementación del Spec-1.1: Drunkard's Walk Regional con validación de conectividad
 pub fn drunkard_walk(width: i32, height: i32, seed: u64) -> Map {
     let mut rng = RandomNumberGenerator::seeded(seed);
     let mut map = Map::new(width, height);
@@ -100,47 +101,48 @@ pub fn drunkard_walk(width: i32, height: i32, seed: u64) -> Map {
     // Tunel al Este
     for x in mid_x..width { let idx = map.xy_idx(x, mid_y); map.tiles[idx] = TileType::Floor; }
 
+    // Validación post-generación (Objetivo #2 y #3)
+    let start_idx = map.xy_idx(mid_x, mid_y);
+    ensure_connectivity(&mut map, start_idx);
+
     map.populate_blocked();
     map
 }
 
-fn ensure_connectivity(map: &mut Map) {
+/// Verifica la conectividad desde un punto de referencia y elimina tiles huérfanos
+fn ensure_connectivity(map: &mut Map, start_idx: usize) {
     let mut visited = vec![false; map.tiles.len()];
-    let mut regions: Vec<Vec<usize>> = Vec::new();
+    let mut q = std::collections::VecDeque::new();
 
-    for (idx, tile) in map.tiles.iter().enumerate() {
-        if *tile == TileType::Floor && !visited[idx] {
-            let mut region = Vec::new();
-            let mut q = std::collections::VecDeque::new();
-            q.push_back(idx);
-            visited[idx] = true;
+    // El punto de inicio debe ser Floor para el flood fill
+    if map.tiles[start_idx] == TileType::Wall {
+        map.tiles[start_idx] = TileType::Floor;
+    }
+    
+    q.push_back(start_idx);
+    visited[start_idx] = true;
 
-            while let Some(current) = q.pop_front() {
-                region.push(current);
-                let x = current as i32 % map.width;
-                let y = current as i32 / map.width;
+    while let Some(current) = q.pop_front() {
+        let x = current as i32 % map.width;
+        let y = current as i32 / map.width;
 
-                for (ix, iy) in [(-1, 0), (1, 0), (0, -1), (0, 1)] {
-                    let nx = x + ix;
-                    let ny = y + iy;
-                    if nx > 0 && nx < map.width - 1 && ny > 0 && ny < map.height - 1 {
-                        let n_idx = map.xy_idx(nx, ny);
-                        if map.tiles[n_idx] == TileType::Floor && !visited[n_idx] {
-                            visited[n_idx] = true;
-                            q.push_back(n_idx);
-                        }
-                    }
+        for (ix, iy) in [(-1, 0), (1, 0), (0, -1), (0, 1)] {
+            let nx = x + ix;
+            let ny = y + iy;
+            if nx >= 0 && nx < map.width && ny >= 0 && ny < map.height {
+                let n_idx = map.xy_idx(nx, ny);
+                if map.tiles[n_idx] == TileType::Floor && !visited[n_idx] {
+                    visited[n_idx] = true;
+                    q.push_back(n_idx);
                 }
             }
-            regions.push(region);
         }
     }
 
-    if regions.is_empty() { return; }
-    regions.sort_by(|a, b| b.len().cmp(&a.len()));
-    for i in 1..regions.len() {
-        for idx in &regions[i] {
-            map.tiles[*idx] = TileType::Wall;
+    // Manejo de "Tiles Huérfanos": Convertir tiles no alcanzables en muros
+    for (idx, tile) in map.tiles.iter_mut().enumerate() {
+        if *tile == TileType::Floor && !visited[idx] {
+            *tile = TileType::Wall;
         }
     }
 }
