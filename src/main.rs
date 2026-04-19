@@ -17,8 +17,8 @@ struct State {
 
 impl GameState for State {
     fn tick(&mut self, ctx: &mut BTerm) {
-        let new_runstate = match self.run_state {
-            RunState::MainMenu { selection } => states::main_menu::tick(ctx, &mut self.world_manager, selection),
+        let new_runstate = match &self.run_state {
+            RunState::MainMenu { selection } => states::main_menu::tick(ctx, &mut self.world_manager, selection.clone()),
             RunState::CharacterCreation => {
                 ctx.set_active_console(1);
                 ctx.cls();
@@ -31,11 +31,12 @@ impl GameState for State {
                 }
             }
             RunState::MapGen => states::map_gen_screen::tick(ctx, &mut self.world_manager),
-            RunState::AwaitingInput | RunState::PlayerTurn | RunState::MonsterTurn => {
+            RunState::InGame | RunState::PlayerTurn | RunState::MonsterTurn => {
                 states::ingame::tick(ctx, &mut self.world_manager, &mut self.time_state, self.run_state)
             }
+
             RunState::Laboratory => states::laboratory::tick(ctx, &mut self.world_manager),
-            RunState::MapInspector { zoom, cursor } => states::map_inspector::tick(ctx, &mut self.world_manager, zoom, cursor),
+            RunState::MapInspector { zoom, cursor } => states::map_inspector::tick(ctx, &mut self.world_manager, *zoom, *cursor),
         };
 
         if let Some(new_state) = new_runstate {

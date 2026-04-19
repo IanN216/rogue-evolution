@@ -17,7 +17,7 @@ pub enum RunState {
     MainMenu { selection: MainMenuSelection },
     CharacterCreation,
     MapGen,
-    AwaitingInput,
+    InGame,
     PlayerTurn,
     MonsterTurn,
     Laboratory,

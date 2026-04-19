@@ -25,7 +25,7 @@ pub fn tick(ctx: &mut BTerm, world_manager: &mut WorldManager, time_state: &mut 
 
     // 2. Lógica según el estado de turno
     match current_state {
-        RunState::AwaitingInput => {
+        RunState::InGame => {
             if let Some(key) = ctx.key {
                 match key {
                     VirtualKeyCode::Left | VirtualKeyCode::H | VirtualKeyCode::Numpad4 => return try_move_player(-1, 0, world_manager),
@@ -45,7 +45,7 @@ pub fn tick(ctx: &mut BTerm, world_manager: &mut WorldManager, time_state: &mut 
         RunState::MonsterTurn => {
             time_state.update();
             process_swarm_ai(&mut world_manager.world, &world_manager.world_map.map);
-            Some(RunState::AwaitingInput)
+            Some(RunState::InGame)
         }
         _ => None
     }

@@ -1,60 +1,55 @@
 #!/bin/bash
-# Agente Supervisor para Rogue-Evolution con Gestión de Señales
-# Ejecución recomendada: exec ./master-build.sh docs/SPECS/Specs-8.1.md
+# Agente Supervisor Rogue-Evolution v4 (Privilegios Totales)
+# Uso: exec ./master-build.sh docs/SPECS/Specs-8.1.md
 
 SPEC_FILE=$1
-MAX_INTENTOS=5
 SUCCESS_KEYWORD="SISTEMA 100% OPERATIVO"
 
-# Función de Cierre Forzoso (se activa con éxito, fallo o Ctrl+C)
-cerrar_terminal() {
-    echo -e "\n🛑 Finalizando procesos y cerrando terminal..."
+# Función de cierre limpio
+limpiar_y_cerrar() {
+    echo -e "\n🛑 Interrupción detectada. Limpiando caché y cerrando shell..."
     sleep 1
     kill -SIGHUP $PPID
     exit 0
 }
 
-# Captura de Ctrl + C (SIGINT)
-trap cerrar_terminal SIGINT
+# Capturamos Ctrl+C (SIGINT) y fallos del sistema
+trap limpiar_y_cerrar SIGINT SIGTERM
 
 if [ -z "$SPEC_FILE" ]; then
     echo "❌ Error: Especifica un Spec."
     exit 1
 fi
 
-echo "🚀 Iniciando construcción autónoma de: $SPEC_FILE"
-echo "💡 (Presiona Ctrl+C en cualquier momento para salir y cerrar la shell)"
+echo "🚀 Iniciando construcción con Privilegios Totales en: $SPEC_FILE"
 
-for ((i=1; i<=MAX_INTENTOS; i++))
+for i in {1..5}
 do
-    echo "--------------------------------------------------------"
-    echo "🔄 INTENTO $i de $MAX_INTENTOS"
+    echo "🔄 CICLO DE TRABAJO $i..."
     
-    # 1. Construcción: Uso de --headless para evitar preguntas de confirmación
-    # Uso de --checkpoint para minimizar el envío de tokens repetidos
+    # 1. TRABAJO: --headless evita las preguntas de "Allow?"
     gemini run "$SPEC_FILE" --checkpoint --headless
     
-    # 2. Validación Técnica Rápida (Ahorro de tokens al no preguntar a la IA si hay errores de tipado)
-    echo "🛠️ Verificando compilación (cargo check)..."
+    # 2. VALIDACIÓN TÉCNICA (Ahorra ciclos de CPU Celeron)
     if ! cargo check; then
-        echo "❌ Error de sintaxis. Solicitando corrección inmediata..."
-        gemini "Corrige los errores de 'cargo check' en el código de $SPEC_FILE." --checkpoint --headless
+        echo "❌ Error de compilación. Enviando reporte detallado..."
+        gemini "Corrige los errores de Rust reportados por 'cargo check' en $SPEC_FILE." --checkpoint --headless
         continue
     fi
 
-    # 3. Auditoría de Lógica e Integridad (Spec-13)
-    echo "🔍 Auditando completitud del sistema..."
-    REPORTE=$(gemini "Usa el skill system-auditor para validar $SPEC_FILE. Responde solo con '$SUCCESS_KEYWORD' o los errores." --checkpoint --headless)
+    # 3. AUDITORÍA DE INTEGRIDAD (Spec-13)
+    echo "🔍 Auditando..."
+    REPORTE=$(gemini "Usa el skill system-auditor para validar $SPEC_FILE. Responde SOLO con '$SUCCESS_KEYWORD' o los archivos con placeholders/TODO." --checkpoint --headless)
 
     if [[ "$REPORTE" == *"$SUCCESS_KEYWORD"* ]]; then
-        echo "✅ ÉXITO: Tarea completada al 100%."
-        cerrar_terminal
+        echo "✅ ÉXITO: Sistema validado al 100%."
+        limpiar_y_cerrar
     else
-        echo "⚠️ Hallazgos del Auditor: $REPORTE"
-        # Feedback agresivo para eliminar esqueletos vacíos
-        gemini "Auditoría FALLIDA: $REPORTE. Basado en esto, completa todas las funciones vacías y uniones en mod.rs para $SPEC_FILE. No dejes comentarios TODO." --checkpoint --headless
+        echo "⚠️ Hallazgos: $REPORTE"
+        # Instrucción agresiva para forzar la unión de las "blocked calls" en map.rs
+        gemini "Auditoría FALLIDA. Detecté placeholders en $REPORTE. Une las funciones de bloqueo en map.rs con el ECS y elimina el comentario 'Logic would go here' en main_menu.rs." --checkpoint --headless
     fi
 done
 
-echo "🛑 Límite de intentos agotado."
-cerrar_terminal
+echo "🛑 Límite de intentos alcanzado."
+limpiar_y_cerrar

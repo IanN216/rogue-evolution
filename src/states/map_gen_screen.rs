@@ -27,7 +27,7 @@ pub fn tick(ctx: &mut BTerm, wm: &mut WorldManager) -> Option<RunState> {
             Experience::new(),
         ));
 
-        return Some(RunState::AwaitingInput);
+        return Some(RunState::InGame);
     }
     None
 }
