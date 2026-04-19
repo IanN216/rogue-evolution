@@ -58,17 +58,7 @@ impl GameState for State {
 
         let new_runstate = match &self.run_state {
             RunState::MainMenu { selection } => states::main_menu::tick(ctx, &mut self.world_manager, selection.clone()),
-            RunState::CharacterCreation => {
-                ctx.set_active_console(1);
-                ctx.cls();
-                ctx.print_centered(25, "Character Creation");
-                ctx.print_centered(27, "Press [M] to return to Main Menu");
-                if let Some(VirtualKeyCode::M) = ctx.key {
-                    Some(RunState::MainMenu { selection: states::MainMenuSelection::NewGame })
-                } else {
-                    None
-                }
-            }
+            RunState::CharacterCreation { selection } => states::character_creation::tick(ctx, &mut self.world_manager, *selection),
             RunState::MapGen { phase, progress, phase_step } => states::map_gen_screen::tick(ctx, &mut self.world_manager, *phase, *progress, *phase_step),
             RunState::InGame | RunState::PlayerTurn | RunState::MonsterTurn => {
                 states::ingame::tick(ctx, &mut self.world_manager, &mut self.time_state, self.run_state.clone())
@@ -100,6 +90,7 @@ fn main() -> BError {
         .with_advanced_input(true)
         .with_fps_cap(60.0)
         .with_simple_console(width, height, "vga8x16.png")
+        .with_simple_console_no_bg(width, height, "vga8x16.png")
         .with_simple_console_no_bg(width, height, "vga8x16.png")
         .build()?;
 

@@ -4,8 +4,11 @@ use crate::core::world::WorldManager;
 use crate::core::map::{TileType, Map};
 
 pub fn tick(ctx: &mut BTerm, world_manager: &mut WorldManager, zoom: f32, cursor: (i32, i32)) -> Option<RunState> {
-    ctx.set_active_console(0);
-    ctx.cls();
+    // 1. Master Clear
+    for i in 0..3 {
+        ctx.set_active_console(i);
+        ctx.cls();
+    }
 
     let (mut cursor_x, mut cursor_y) = cursor;
     let mut current_zoom = zoom;

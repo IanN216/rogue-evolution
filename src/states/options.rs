@@ -3,20 +3,23 @@ use super::{RunState, MainMenuSelection};
 use crate::utils::config::{Settings, DisplayMode};
 
 pub fn tick(ctx: &mut BTerm, selection: usize) -> Option<RunState> {
-    // 1. Limpieza Total de Capas
-    ctx.set_active_console(0);
-    ctx.cls();
+    // 1. Limpieza de Búfer Triple
+    for i in 0..3 {
+        ctx.set_active_console(i);
+        ctx.cls();
+    }
+
+    let (sw, sh) = ctx.get_char_size();
+    let center_x = sw as i32 / 2;
+    let center_y = sh as i32 / 2;
+
     ctx.set_active_console(1);
-    ctx.cls();
-
-    let (_, screen_h) = ctx.get_char_size();
-    let center_y = screen_h as i32 / 2;
-
-    ctx.print_color_centered(center_y - 10, RGB::named(YELLOW), RGB::named(BLACK), "CONFIGURACIÓN");
+    let title = "CONFIGURACIÓN";
+    ctx.print_color(center_x - (title.len() as i32 / 2), center_y - 10, RGB::named(YELLOW), RGB::named(BLACK), title);
 
     let mut settings = Settings::load();
 
-    // Nombres Amigables (User Directive)
+    // Nombres Amigables
     let label_windowed = format!("Ventana (80x50) {}", if settings.display_mode == DisplayMode::Windowed80x50 { "[*]" } else { "[ ]" });
     let label_fullscreen = format!("Pantalla Completa (1366x768) {}", if settings.display_mode == DisplayMode::FullscreenNative170x48 { "[*]" } else { "[ ]" });
 
@@ -29,10 +32,12 @@ pub fn tick(ctx: &mut BTerm, selection: usize) -> Option<RunState> {
     for (i, option) in options.iter().enumerate() {
         let color = if i == selection { RGB::named(YELLOW) } else { RGB::named(WHITE) };
         let marker = if i == selection { ">> " } else { "   " };
-        ctx.print_color_centered(center_y + i as i32, color, RGB::named(BLACK), format!("{}{}", marker, option));
+        let text = format!("{}{}", marker, option);
+        ctx.print_color(center_x - (text.len() as i32 / 2), center_y + i as i32, color, RGB::named(BLACK), text);
     }
 
-    ctx.print_color_centered(center_y + 10, RGB::named(GRAY), RGB::named(BLACK), "Nota: Los cambios de resolución requieren reiniciar el programa.");
+    let footer = "Nota: Los cambios de resolución requieren reiniciar el programa.";
+    ctx.print_color(center_x - (footer.len() as i32 / 2), center_y + 10, RGB::named(GRAY), RGB::named(BLACK), footer);
 
     if let Some(key) = ctx.key {
         match key {

@@ -7,26 +7,23 @@ use crate::components::identity::Identity;
 use crate::components::progression::Experience;
 
 pub fn tick(ctx: &mut BTerm, wm: &mut WorldManager, phase: usize, progress: f32, phase_step: usize) -> Option<RunState> {
-    // 1. Método 'Master Clear' (Eliminar Fantasmas Visuales)
-    for i in 0..2 {
+    // 1. Limpieza de Búfer Triple
+    for i in 0..3 {
         ctx.set_active_console(i);
         ctx.cls();
     }
 
-    // 2. Implementación de Geometría Dinámica
+    // 2. Centrado Dinámico Absoluto
     let (sw, sh) = ctx.get_char_size();
+    let center_x = sw as i32 / 2;
+    let center_y = sh as i32 / 2;
     
-    let bw = 64; // Ancho de la caja
-    let bh = 10; // Alto de la caja
-    let x = (sw as i32 / 2) - (bw / 2);
-    let y = (sh as i32 / 2) - (bh / 2);
-    
-    // Capa 0: Fondo (Opcional, cls() ya limpia)
-    ctx.set_active_console(0);
+    let bw = 64;
+    let bh = 10;
     
     // Capa 1: UI
     ctx.set_active_console(1);
-    ctx.draw_hollow_box(x, y, bw, bh, RGB::named(WHITE), RGB::named(BLACK));
+    ctx.draw_hollow_box(center_x - (bw / 2), center_y - (bh / 2), bw, bh, RGB::named(WHITE), RGB::named(BLACK));
     
     let phase_text = match phase {
         0 => "Fase 1: Autómatas Celulares (Estructura Inicial)",
@@ -36,18 +33,21 @@ pub fn tick(ctx: &mut BTerm, wm: &mut WorldManager, phase: usize, progress: f32,
         _ => "Generación Completada - Sistema Estable",
     };
 
-    ctx.print_color_centered(y + 2, RGB::named(YELLOW), RGB::named(BLACK), "GENERANDO MUNDO PROCEDURAL");
-    ctx.print_centered(y + 4, phase_text);
+    // Texto con centrado manual para precisión absoluta
+    let t1 = "GENERANDO MUNDO PROCEDURAL";
+    ctx.print_color(center_x - (t1.len() as i32 / 2), center_y - (bh / 2) + 2, RGB::named(YELLOW), RGB::named(BLACK), t1);
+    ctx.print_color(center_x - (phase_text.len() as i32 / 2), center_y - (bh / 2) + 4, RGB::named(WHITE), RGB::named(BLACK), phase_text);
     
-    // Barra de Progreso centrada
+    // Barra de Progreso
     let bar_w = 50;
-    let bar_x = (sw as i32 / 2) - (bar_w / 2);
     let total_progress = (phase as f32 + progress) / 4.0;
     
-    ctx.draw_bar_horizontal(bar_x, y + 6, bar_w, (total_progress * 100.0) as i32, 100, RGB::named(CYAN), RGB::named(BLACK));
-    ctx.print_centered(y + 8, format!("{:.0}%", total_progress * 100.0));
+    ctx.draw_bar_horizontal(center_x - (bar_w / 2), center_y - (bh / 2) + 6, bar_w, (total_progress * 100.0) as i32, 100, RGB::named(CYAN), RGB::named(BLACK));
+    
+    let p_text = format!("{:.0}%", total_progress * 100.0);
+    ctx.print_color(center_x - (p_text.len() as i32 / 2), center_y - (bh / 2) + 8, RGB::named(WHITE), RGB::named(BLACK), p_text);
 
-    // Lógica de generación por fases (No bloqueante)
+    // Lógica de generación
     match phase {
         0 => {
             if phase_step < 10 {
@@ -75,7 +75,8 @@ pub fn tick(ctx: &mut BTerm, wm: &mut WorldManager, phase: usize, progress: f32,
             return Some(RunState::MapGen { phase: 4, progress: 1.0, phase_step: 0 });
         }
         4 => {
-            ctx.print_centered(y + bh + 2, "MAPA LISTO. PRESIONE [ESPACIO]");
+            let ready_text = "MAPA LISTO. PRESIONE [ESPACIO]";
+            ctx.print_color(center_x - (ready_text.len() as i32 / 2), center_y + (bh / 2) + 2, RGB::named(GREEN), RGB::named(BLACK), ready_text);
             if let Some(VirtualKeyCode::Space) = ctx.key {
                 return Some(RunState::InGame);
             }

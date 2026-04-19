@@ -11,30 +11,32 @@ use crate::components::items::{Item, Weapon, Blighted, InfectionSource};
 use crate::core::world_map::EntitySnapshot;
 
 pub fn tick(ctx: &mut BTerm, wm: &mut WorldManager, selection: usize) -> Option<RunState> {
-    // 1. Limpieza Total de Capas
-    ctx.set_active_console(0);
-    ctx.cls();
+    // 1. Limpieza de Búfer Triple
+    for i in 0..3 {
+        ctx.set_active_console(i);
+        ctx.cls();
+    }
+
+    let (sw, sh) = ctx.get_char_size();
+    let center_x = sw as i32 / 2;
+    let center_y = sh as i32 / 2;
+
+    // 2. Dibujo en Capa 1 (UI)
     ctx.set_active_console(1);
-    ctx.cls();
-
-    let (w, h) = ctx.get_char_size();
-
-    // Semi-transparent background simulation
-    let box_width = 40;
-    let box_height = 12;
-    let x = (w as i32 - box_width) / 2;
-    let y = (h as i32 - box_height) / 2;
-
-    ctx.draw_hollow_box(x, y, box_width, box_height, RGB::named(WHITE), RGB::named(BLACK));
-    ctx.print_color_centered(y - 2, RGB::named(YELLOW), RGB::named(BLACK), "SISTEMA EN PAUSA");
+    let bw = 40;
+    let bh = 12;
+    ctx.draw_hollow_box(center_x - (bw / 2), center_y - (bh / 2), bw, bh, RGB::named(WHITE), RGB::named(BLACK));
+    
+    let title = "SISTEMA EN PAUSA";
+    ctx.print_color(center_x - (title.len() as i32 / 2), center_y - (bh / 2) - 2, RGB::named(YELLOW), RGB::named(BLACK), title);
 
     if selection < 3 {
-        // Menú Principal de Pausa
         let items = ["Continuar", "Guardar Partida", "Salir"];
         for (i, item) in items.iter().enumerate() {
             let color = if i == selection { RGB::named(YELLOW) } else { RGB::named(WHITE) };
             let marker = if i == selection { "-> " } else { "   " };
-            ctx.print_color_centered(y + 3 + i as i32 * 2, color, RGB::named(BLACK), format!("{}{}", marker, item));
+            let text = format!("{}{}", marker, item);
+            ctx.print_color(center_x - (text.len() as i32 / 2), center_y - (bh / 2) + 3 + i as i32 * 2, color, RGB::named(BLACK), text);
         }
 
         if let Some(key) = ctx.key {
@@ -54,7 +56,7 @@ pub fn tick(ctx: &mut BTerm, wm: &mut WorldManager, selection: usize) -> Option<
                             save_current_world(wm);
                             return Some(RunState::PauseMenu { selection: 0 });
                         }
-                        2 => return Some(RunState::PauseMenu { selection: 3 }), // Sub-menú de salida
+                        2 => return Some(RunState::PauseMenu { selection: 3 }), 
                         _ => {}
                     }
                 }
@@ -63,15 +65,16 @@ pub fn tick(ctx: &mut BTerm, wm: &mut WorldManager, selection: usize) -> Option<
             }
         }
     } else {
-        // Sub-menú de Salida (User Directive)
-        ctx.print_color_centered(y + 2, RGB::named(RED), RGB::named(BLACK), "¿SALIR DEL ENTORNO?");
+        let msg = "¿SALIR DEL ENTORNO?";
+        ctx.print_color(center_x - (msg.len() as i32 / 2), center_y - (bh / 2) + 2, RGB::named(RED), RGB::named(BLACK), msg);
         let items = ["Menú de Inicio", "Cerrar Juego"];
         let sub_idx = selection - 3;
 
         for (i, item) in items.iter().enumerate() {
             let color = if i == sub_idx { RGB::named(YELLOW) } else { RGB::named(WHITE) };
             let marker = if i == sub_idx { "-> " } else { "   " };
-            ctx.print_color_centered(y + 5 + i as i32 * 2, color, RGB::named(BLACK), format!("{}{}", marker, item));
+            let text = format!("{}{}", marker, item);
+            ctx.print_color(center_x - (text.len() as i32 / 2), center_y - (bh / 2) + 5 + i as i32 * 2, color, RGB::named(BLACK), text);
         }
 
         if let Some(key) = ctx.key {
@@ -82,8 +85,7 @@ pub fn tick(ctx: &mut BTerm, wm: &mut WorldManager, selection: usize) -> Option<
                 }
                 VirtualKeyCode::Return => {
                     if selection == 3 {
-                        // Limpiar mundo de la memoria al salir (User Directive)
-                        wm.clear(w as i32, h as i32);
+                        wm.clear(sw as i32, sh as i32);
                         return Some(RunState::MainMenu { selection: super::MainMenuSelection::NewGame });
                     } else {
                         return Some(RunState::Quit);

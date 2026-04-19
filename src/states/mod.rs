@@ -5,6 +5,7 @@ pub mod laboratory;
 pub mod map_inspector;
 pub mod options;
 pub mod pause_menu;
+pub mod character_creation;
 
 #[derive(PartialEq, Clone, Debug)]
 pub enum MainMenuSelection {
@@ -19,7 +20,7 @@ pub enum MainMenuSelection {
 #[derive(PartialEq, Clone)]
 pub enum RunState {
     MainMenu { selection: MainMenuSelection },
-    CharacterCreation,
+    CharacterCreation { selection: usize },
     MapGen { phase: usize, progress: f32, phase_step: usize },
     InGame,
     PlayerTurn,
