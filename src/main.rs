@@ -20,19 +20,21 @@ struct State {
 
 impl GameState for State {
     fn tick(&mut self, ctx: &mut BTerm) {
-        // Cierre del Sistema (Nivel más alto del tick)
+        // 1. Cierre del Sistema (F4 + Alt)
         if ctx.key == Some(VirtualKeyCode::F4) && ctx.alt {
             ctx.quit();
             return;
         }
 
-        // Global Input Detection
+        // 2. Detección de Entrada Global (Fullscreen Toggle)
         if let Some(key) = ctx.key {
             match key {
-                // Global Toggle Fullscreen (Puramente informativo en runtime para v0.8)
                 VirtualKeyCode::F11 | VirtualKeyCode::Return if ctx.alt => {
                     self.fullscreen = !self.fullscreen;
-                    // El cambio real requiere reinicio para aplicarse en bracket-lib 0.8
+                    let mut settings = Settings::load();
+                    settings.fullscreen = self.fullscreen;
+                    settings.save();
+                    // El cambio real de ventana requiere reinicio en bracket-lib 0.8 para aplicar fitscreen
                 }
                 _ => {}
             }
@@ -43,6 +45,7 @@ impl GameState for State {
             return;
         }
 
+        // 3. Ejecución de la Lógica del Estado Actual
         let new_runstate = match &self.run_state {
             RunState::MainMenu { selection } => states::main_menu::tick(ctx, &mut self.world_manager, selection.clone()),
             RunState::CharacterCreation { selection } => states::character_creation::tick(ctx, &mut self.world_manager, *selection),
@@ -61,26 +64,30 @@ impl GameState for State {
         if let Some(new_state) = new_runstate {
             self.run_state = new_state;
         }
+
+        // 4. FIX: Vuelco obligatorio del búfer de dibujo DrawBatch a la GPU
+        render_draw_buffer(ctx).expect("Render failure");
     }
 }
 
 fn main() -> BError {
     let settings = Settings::load();
     
-    // Configuración de Consolas con Resolución Lógica Fija (UI Upscaling)
+    // Configuración de Consolas con Resolución Lógica Fija y Auto-Escalado
     let context = BTermBuilder::new()
         .with_title("Rogue-Evolution")
         .with_dimensions(LOGICAL_WIDTH, LOGICAL_HEIGHT)
         .with_tile_dimensions(8, 16)
         .with_font("vga8x16.png", 8, 16)
         .with_fullscreen(settings.fullscreen)
+        .with_fitscreen(true) // Crucial: Adapta la rejilla lógica al tamaño físico del monitor
         .with_advanced_input(true)
         .with_fps_cap(60.0)
-        // Capa 0: Terreno / Mundo
+        // Capa 0: Mundo (Suelo/Paredes)
         .with_simple_console(LOGICAL_WIDTH, LOGICAL_HEIGHT, "vga8x16.png")
-        // Capa 1: Entidades
+        // Capa 1: Entidades (NPCs/Jugador)
         .with_simple_console_no_bg(LOGICAL_WIDTH, LOGICAL_HEIGHT, "vga8x16.png")
-        // Capa 2: UI / Menús
+        // Capa 2: UI (Menús/HUD)
         .with_simple_console_no_bg(LOGICAL_WIDTH, LOGICAL_HEIGHT, "vga8x16.png")
         .build()?;
 
