@@ -11,7 +11,8 @@ case "$SPEC_FILE" in
     *"Specs-3"*)  REF="evolution-genetics.md" ;;
     *"Specs-12"*) REF="dijkstra-navigation.md" ;;
     *"Specs-8.1"*) REF="dual-layer-persistence.md" ;;
-    *) REF="map-blocking-integrity.md" ;; # Referencia por defecto
+    *) REF="map-blocking-integrity.md" ;; 
+    *"Specs-15"*) REF="dual-layer-persistence.md" ;;# Referencia por defecto
 esac
 
 limpiar_y_cerrar() {
