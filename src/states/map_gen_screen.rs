@@ -13,7 +13,7 @@ pub fn tick(ctx: &mut BTerm, wm: &mut WorldManager, phase: usize, progress: f32,
         ctx.cls();
     }
 
-    // 2. Centrado Dinámico Absoluto
+    // 2. Centrado Dinámico con Ajuste (Un poco más arriba y a la izquierda)
     let (sw, sh) = ctx.get_char_size();
     let center_x = sw as i32 / 2;
     let center_y = sh as i32 / 2;
@@ -21,9 +21,13 @@ pub fn tick(ctx: &mut BTerm, wm: &mut WorldManager, phase: usize, progress: f32,
     let bw = 64;
     let bh = 10;
     
+    // Offset manual solicitado: -4 en X, -4 en Y
+    let x = center_x - (bw / 2) - 4;
+    let y = center_y - (bh / 2) - 4;
+    
     // Capa 1: UI
     ctx.set_active_console(1);
-    ctx.draw_hollow_box(center_x - (bw / 2), center_y - (bh / 2), bw, bh, RGB::named(WHITE), RGB::named(BLACK));
+    ctx.draw_hollow_box(x, y, bw, bh, RGB::named(WHITE), RGB::named(BLACK));
     
     let phase_text = match phase {
         0 => "Fase 1: Autómatas Celulares (Estructura Inicial)",
@@ -33,19 +37,20 @@ pub fn tick(ctx: &mut BTerm, wm: &mut WorldManager, phase: usize, progress: f32,
         _ => "Generación Completada - Sistema Estable",
     };
 
-    // Texto con centrado manual para precisión absoluta
+    // Texto alineado con el nuevo origen (x, y)
     let t1 = "GENERANDO MUNDO PROCEDURAL";
-    ctx.print_color(center_x - (t1.len() as i32 / 2), center_y - (bh / 2) + 2, RGB::named(YELLOW), RGB::named(BLACK), t1);
-    ctx.print_color(center_x - (phase_text.len() as i32 / 2), center_y - (bh / 2) + 4, RGB::named(WHITE), RGB::named(BLACK), phase_text);
+    ctx.print_color(x + (bw / 2) - (t1.len() as i32 / 2), y + 2, RGB::named(YELLOW), RGB::named(BLACK), t1);
+    ctx.print_color(x + (bw / 2) - (phase_text.len() as i32 / 2), y + 4, RGB::named(WHITE), RGB::named(BLACK), phase_text);
     
     // Barra de Progreso
     let bar_w = 50;
     let total_progress = (phase as f32 + progress) / 4.0;
+    let bar_x = x + (bw / 2) - (bar_w / 2);
     
-    ctx.draw_bar_horizontal(center_x - (bar_w / 2), center_y - (bh / 2) + 6, bar_w, (total_progress * 100.0) as i32, 100, RGB::named(CYAN), RGB::named(BLACK));
+    ctx.draw_bar_horizontal(bar_x, y + 6, bar_w, (total_progress * 100.0) as i32, 100, RGB::named(CYAN), RGB::named(BLACK));
     
     let p_text = format!("{:.0}%", total_progress * 100.0);
-    ctx.print_color(center_x - (p_text.len() as i32 / 2), center_y - (bh / 2) + 8, RGB::named(WHITE), RGB::named(BLACK), p_text);
+    ctx.print_color(x + (bw / 2) - (p_text.len() as i32 / 2), y + 8, RGB::named(WHITE), RGB::named(BLACK), p_text);
 
     // Lógica de generación
     match phase {
@@ -76,7 +81,7 @@ pub fn tick(ctx: &mut BTerm, wm: &mut WorldManager, phase: usize, progress: f32,
         }
         4 => {
             let ready_text = "MAPA LISTO. PRESIONE [ESPACIO]";
-            ctx.print_color(center_x - (ready_text.len() as i32 / 2), center_y + (bh / 2) + 2, RGB::named(GREEN), RGB::named(BLACK), ready_text);
+            ctx.print_color(x + (bw / 2) - (ready_text.len() as i32 / 2), y + bh + 2, RGB::named(GREEN), RGB::named(BLACK), ready_text);
             if let Some(VirtualKeyCode::Space) = ctx.key {
                 return Some(RunState::InGame);
             }

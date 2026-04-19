@@ -9,94 +9,140 @@ use crate::components::kingdom::KingdomMember;
 use crate::components::progression::{Experience, AbilityRegistry, Humanoid};
 use crate::components::items::{Item, Weapon, Blighted, InfectionSource};
 use crate::core::world_map::EntitySnapshot;
+use crate::utils::ui_constants::*;
 
 pub fn tick(ctx: &mut BTerm, wm: &mut WorldManager, selection: usize) -> Option<RunState> {
-    // 1. Limpieza de Búfer Triple
-    for i in 0..3 {
-        ctx.set_active_console(i);
-        ctx.cls();
-    }
+    let mut draw_batch = DrawBatch::new();
+    
+    // Limpieza de Consolas
+    draw_batch.target(0);
+    draw_batch.cls();
+    draw_batch.target(1);
+    draw_batch.cls();
+    draw_batch.target(2);
+    draw_batch.cls();
 
-    let (sw, sh) = ctx.get_char_size();
-    let center_x = sw as i32 / 2;
-    let center_y = sh as i32 / 2;
+    let center_x = LOGICAL_WIDTH / 2;
+    let center_y = LOGICAL_HEIGHT / 2;
 
-    // 2. Dibujo en Capa 1 (UI)
-    ctx.set_active_console(1);
+    draw_batch.target(2); // UI Layer
     let bw = 40;
     let bh = 12;
-    ctx.draw_hollow_box(center_x - (bw / 2), center_y - (bh / 2), bw, bh, RGB::named(WHITE), RGB::named(BLACK));
+    
+    // Offset centrado basado en constantes lógicas
+    let x = center_x - (bw / 2);
+    let y = center_y - (bh / 2);
+    
+    draw_batch.draw_hollow_box(
+        Rect::with_size(x, y, bw, bh),
+        ColorPair::new(WHITE, BLACK)
+    );
     
     let title = "SISTEMA EN PAUSA";
-    ctx.print_color(center_x - (title.len() as i32 / 2), center_y - (bh / 2) - 2, RGB::named(YELLOW), RGB::named(BLACK), title);
+    draw_batch.print_color(
+        Point::new(x + (bw / 2) - (title.len() as i32 / 2), y - 2),
+        title,
+        ColorPair::new(YELLOW, BLACK)
+    );
 
     if selection < 3 {
         let items = ["Continuar", "Guardar Partida", "Salir"];
         for (i, item) in items.iter().enumerate() {
-            let color = if i == selection { RGB::named(YELLOW) } else { RGB::named(WHITE) };
+            let color = if i == selection { YELLOW } else { WHITE };
             let marker = if i == selection { "-> " } else { "   " };
             let text = format!("{}{}", marker, item);
-            ctx.print_color(center_x - (text.len() as i32 / 2), center_y - (bh / 2) + 3 + i as i32 * 2, color, RGB::named(BLACK), text);
+            draw_batch.print_color(
+                Point::new(x + (bw / 2) - (text.len() as i32 / 2), y + 3 + i as i32 * 2),
+                text,
+                ColorPair::new(color, BLACK)
+            );
         }
 
         if let Some(key) = ctx.key {
             match key {
                 VirtualKeyCode::Up => {
                     let next = if selection > 0 { selection - 1 } else { 2 };
+                    draw_batch.submit(0).expect("Batch submission failed");
                     return Some(RunState::PauseMenu { selection: next });
                 }
                 VirtualKeyCode::Down => {
                     let next = if selection < 2 { selection + 1 } else { 0 };
+                    draw_batch.submit(0).expect("Batch submission failed");
                     return Some(RunState::PauseMenu { selection: next });
                 }
                 VirtualKeyCode::Return => {
                     match selection {
-                        0 => return Some(RunState::InGame),
+                        0 => {
+                            draw_batch.submit(0).expect("Batch submission failed");
+                            return Some(RunState::InGame);
+                        }
                         1 => {
                             save_current_world(wm);
+                            draw_batch.submit(0).expect("Batch submission failed");
                             return Some(RunState::PauseMenu { selection: 0 });
                         }
-                        2 => return Some(RunState::PauseMenu { selection: 3 }), 
+                        2 => {
+                            draw_batch.submit(0).expect("Batch submission failed");
+                            return Some(RunState::PauseMenu { selection: 3 });
+                        }
                         _ => {}
                     }
                 }
-                VirtualKeyCode::Escape => return Some(RunState::InGame),
+                VirtualKeyCode::Escape => {
+                    draw_batch.submit(0).expect("Batch submission failed");
+                    return Some(RunState::InGame);
+                }
                 _ => {}
             }
         }
     } else {
         let msg = "¿SALIR DEL ENTORNO?";
-        ctx.print_color(center_x - (msg.len() as i32 / 2), center_y - (bh / 2) + 2, RGB::named(RED), RGB::named(BLACK), msg);
+        draw_batch.print_color(
+            Point::new(x + (bw / 2) - (msg.len() as i32 / 2), y + 2),
+            msg,
+            ColorPair::new(RED, BLACK)
+        );
         let items = ["Menú de Inicio", "Cerrar Juego"];
         let sub_idx = selection - 3;
 
         for (i, item) in items.iter().enumerate() {
-            let color = if i == sub_idx { RGB::named(YELLOW) } else { RGB::named(WHITE) };
+            let color = if i == sub_idx { YELLOW } else { WHITE };
             let marker = if i == sub_idx { "-> " } else { "   " };
             let text = format!("{}{}", marker, item);
-            ctx.print_color(center_x - (text.len() as i32 / 2), center_y - (bh / 2) + 5 + i as i32 * 2, color, RGB::named(BLACK), text);
+            draw_batch.print_color(
+                Point::new(x + (bw / 2) - (text.len() as i32 / 2), y + 5 + i as i32 * 2),
+                text,
+                ColorPair::new(color, BLACK)
+            );
         }
 
         if let Some(key) = ctx.key {
             match key {
                 VirtualKeyCode::Up | VirtualKeyCode::Down => {
                     let next = if selection == 3 { 4 } else { 3 };
+                    draw_batch.submit(0).expect("Batch submission failed");
                     return Some(RunState::PauseMenu { selection: next });
                 }
                 VirtualKeyCode::Return => {
                     if selection == 3 {
-                        wm.clear(sw as i32, sh as i32);
+                        wm.clear(LOGICAL_WIDTH, LOGICAL_HEIGHT);
+                        draw_batch.submit(0).expect("Batch submission failed");
                         return Some(RunState::MainMenu { selection: super::MainMenuSelection::NewGame });
                     } else {
+                        draw_batch.submit(0).expect("Batch submission failed");
                         return Some(RunState::Quit);
                     }
                 }
-                VirtualKeyCode::Escape => return Some(RunState::PauseMenu { selection: 2 }),
+                VirtualKeyCode::Escape => {
+                    draw_batch.submit(0).expect("Batch submission failed");
+                    return Some(RunState::PauseMenu { selection: 2 });
+                }
                 _ => {}
             }
         }
     }
 
+    draw_batch.submit(0).expect("Batch submission failed");
     None
 }
 

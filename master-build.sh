@@ -1,6 +1,6 @@
 #!/bin/bash
-# Agente Supervisor Rogue-Evolution v5 (Mapeo de Referencias)
-# Uso: exec ./master-build.sh docs/SPECS/Specs-1.1.md
+# Agente Supervisor Rogue-Evolution v6 (Refactorizado para Compatibilidad)
+# Misión: Eliminar flags obsoletos y asegurar la integración de UI Dinámica.
 
 SPEC_FILE=$1
 SUCCESS_KEYWORD="SISTEMA 100% OPERATIVO"
@@ -11,12 +11,13 @@ case "$SPEC_FILE" in
     *"Specs-3"*)  REF="evolution-genetics.md" ;;
     *"Specs-12"*) REF="dijkstra-navigation.md" ;;
     *"Specs-8.1"*) REF="dual-layer-persistence.md" ;;
-    *) REF="map-blocking-integrity.md" ;; 
-    *"Specs-15"*) REF="dual-layer-persistence.md" ;;# Referencia por defecto
+    *"Specs-15"*) REF="dual-layer-persistence.md" ;;
+    *"Specs-16"*) REF="dual-layer-persistence.md" ;;
+    *) REF="map-blocking-integrity.md" ;;
 esac
 
 limpiar_y_cerrar() {
-    echo -e "\n🛑 Tarea terminada. Cerrando shell..."
+    echo -e "\n🛑 Proceso finalizado. Liberando recursos del Celeron..."
     sleep 1
     kill -SIGHUP $PPID
     exit 0
@@ -24,36 +25,43 @@ limpiar_y_cerrar() {
 
 trap limpiar_y_cerrar SIGINT
 
-if [ -z "$SPEC_FILE" ]; then echo "❌ Error: Especifica un Spec."; exit 1; fi
+if [ -z "$SPEC_FILE" ]; then 
+    echo "❌ Error: Debes especificar un archivo de Spec (ej: docs/SPECS/Specs-16.md)."
+    exit 1
+fi
 
-echo "🚀 Construyendo: $SPEC_FILE"
-echo "📚 Referencia activa: $REF"
+echo "🚀 Iniciando construcción de: $SPEC_FILE"
+echo "📚 Cruzando con referencia teórica: $REF"
 
 for i in {1..5}
 do
-    echo "🔄 CICLO $i..."
-    # 1. TRABAJO HEADLESS
-    gemini run "$SPEC_FILE" --checkpoint --headless
+    echo "🔄 CICLO DE TRABAJO $i/5..."
     
-    # 2. VALIDACIÓN TÉCNICA (Rápida en Celeron)
+    # 1. EJECUCIÓN DEL SPEC
+    # Se eliminan --checkpoint y --headless por incompatibilidad de entorno.
+    # Se refuerza la regla de las 3 consolas y el centrado dinámico.
+    gemini "Aplica los requerimientos de $SPEC_FILE. REGLA CRÍTICA: Implementa la limpieza de las 3 consolas (0..3) en cada tick y usa centrado dinámico absoluto (sw/2 - bw/2) para todos los recuadros de la UI."
+    
+    # 2. VALIDACIÓN SINTÁCTICA (Rápida en Celeron)
     if ! cargo check; then
-        gemini "Error en 'cargo check'. Corrige la sintaxis en $SPEC_FILE." --checkpoint --headless
+        echo "⚠️ Fallo en cargo check. Solicitando reparación automática..."
+        gemini "El código no compila. Corrige los errores de Rust en $SPEC_FILE basándote en la salida de 'cargo check' y asegúrate de no usar coordenadas hardcodeadas como 25 o 27."
         continue
     fi
 
-    # 3. AUDITORÍA CON CRUCE DE REFERENCIA
-    echo "🔍 Auditando integridad con $REF..."
-    # Aquí es donde ocurre la magia: forzamos a leer la referencia específica
-    REPORTE=$(gemini "Usa los skills 'system-auditor' y 'rogue-scholar'. Lee la referencia 'docs/SKILLS/reference/$REF' y valida si el código de $SPEC_FILE cumple con la teoría al 100%. Responde SOLO con '$SUCCESS_KEYWORD' o los fallos técnicos." --checkpoint --headless)
+    # 3. AUDITORÍA DE INTEGRIDAD (Spec-13 + Scholar)
+    echo "🔍 Verificando integridad científica y visual..."
+    # Se utiliza el prompt directo sin flags problemáticos
+    REPORTE=$(gemini "Actúa como 'system-auditor' y 'rogue-scholar'. Valida el código contra 'docs/SKILLS/reference/$REF'. ¿Están las 3 consolas limpias? ¿Está la UI centrada dinámicamente en 170x48? Responde SOLO con '$SUCCESS_KEYWORD' o detalla los fallos.")
 
     if [[ "$REPORTE" == *"$SUCCESS_KEYWORD"* ]]; then
-        echo "✅ ÉXITO: Sistema validado contra investigación de NotebookLM."
+        echo "✅ ÉXITO TOTAL: Sistema validado contra la teoría y el hardware."
         limpiar_y_cerrar
     else
-        echo "⚠️ Fallo Teórico: $REPORTE"
-        gemini "La implementación no cumple con la referencia $REF. Detalle: $REPORTE. Corrige el código y elimina esqueletos TODO." --checkpoint --headless
+        echo "⚠️ Hallazgos encontrados: $REPORTE"
+        gemini "Auditoría fallida. Corrige estos puntos: $REPORTE. Asegúrate de eliminar esqueletos TODO y restos visuales del menú anterior limpiando la Consola 2."
     fi
 done
 
-echo "🛑 Límite alcanzado."
+echo "🛑 Se alcanzó el límite de intentos sin validación completa."
 limpiar_y_cerrar

@@ -6,39 +6,53 @@ use crate::components::stats::{Renderable, BaseStats};
 use crate::components::identity::Identity;
 use crate::components::progression::Humanoid;
 use crate::components::items::{Blighted, InfectionSource};
+use crate::utils::ui_constants::*;
 use std::fs;
 
 pub fn tick(ctx: &mut BTerm, world_manager: &mut WorldManager, selection: MainMenuSelection) -> Option<RunState> {
-    // 1. Limpieza de Búfer Triple
-    for i in 0..3 {
-        ctx.set_active_console(i);
-        ctx.cls();
-    }
+    let mut draw_batch = DrawBatch::new();
+    
+    // Limpieza de Consolas usando Batch
+    draw_batch.target(0);
+    draw_batch.cls();
+    draw_batch.target(1);
+    draw_batch.cls();
+    draw_batch.target(2);
+    draw_batch.cls();
 
-    let (sw, sh) = ctx.get_char_size();
-    let center_x = sw as i32 / 2;
-    let center_y = sh as i32 / 2;
+    let center_x = LOGICAL_WIDTH / 2;
+    let center_y = LOGICAL_HEIGHT / 2;
 
-    ctx.set_active_console(1);
+    draw_batch.target(2); // UI Layer
     let title = "ROGUE-EVOLUTION";
     let subtitle = "Celeron N2806 Optimized Edition";
-    ctx.print_color(center_x - (title.len() as i32 / 2), center_y - 12, RGB::named(YELLOW), RGB::named(BLACK), title);
-    ctx.print_color(center_x - (subtitle.len() as i32 / 2), center_y - 10, RGB::named(CYAN), RGB::named(BLACK), subtitle);
+    draw_batch.print_color(
+        Point::new(center_x - (title.len() as i32 / 2), center_y - 12),
+        title,
+        ColorPair::new(YELLOW, BLACK)
+    );
+    draw_batch.print_color(
+        Point::new(center_x - (subtitle.len() as i32 / 2), center_y - 10),
+        subtitle,
+        ColorPair::new(CYAN, BLACK)
+    );
 
     match selection {
         MainMenuSelection::NewGame => {
-            draw_main_menu_items(ctx, 0, center_x, center_y);
+            draw_main_menu_items(&mut draw_batch, 0, center_x, center_y);
 
             if let Some(key) = ctx.key {
                 match key {
                     VirtualKeyCode::Down => {
                         let saves = get_save_list();
+                        draw_batch.submit(0).expect("Batch submission failed");
                         return Some(RunState::MainMenu { 
                             selection: MainMenuSelection::LoadGame { selection: 0, cached_saves: saves } 
                         });
                     }
                     VirtualKeyCode::Return => {
-                        world_manager.clear(sw as i32, sh as i32);
+                        world_manager.clear(LOGICAL_WIDTH, LOGICAL_HEIGHT);
+                        draw_batch.submit(0).expect("Batch submission failed");
                         return Some(RunState::CharacterCreation { selection: 0 });
                     }
                     _ => {}
@@ -46,30 +60,47 @@ pub fn tick(ctx: &mut BTerm, world_manager: &mut WorldManager, selection: MainMe
             }
         }
         MainMenuSelection::LoadGame { selection: idx, cached_saves: saves } => {
-            draw_main_menu_items(ctx, 1, center_x, center_y);
+            draw_main_menu_items(&mut draw_batch, 1, center_x, center_y);
 
             let start_y = center_y + 2;
             let header = "--- SELECT SAVE ---";
-            ctx.print_color(center_x - (header.len() as i32 / 2), start_y, RGB::named(GRAY), RGB::named(BLACK), header);
+            draw_batch.print_color(
+                Point::new(center_x - (header.len() as i32 / 2), start_y),
+                header,
+                ColorPair::new(GRAY, BLACK)
+            );
             
             if saves.is_empty() {
                 let msg = "No saves found";
-                ctx.print_color(center_x - (msg.len() as i32 / 2), start_y + 2, RGB::named(RED), RGB::named(BLACK), msg);
+                draw_batch.print_color(
+                    Point::new(center_x - (msg.len() as i32 / 2), start_y + 2),
+                    msg,
+                    ColorPair::new(RED, BLACK)
+                );
             } else {
                 for (i, save) in saves.iter().enumerate() {
                     if i > 10 { break; } 
-                    let color = if i == idx { RGB::named(YELLOW) } else { RGB::named(WHITE) };
+                    let color = if i == idx { YELLOW } else { WHITE };
                     let marker = if i == idx { "-> " } else { "   " };
                     let text = format!("{}{}", marker, save);
-                    ctx.print_color(center_x - (text.len() as i32 / 2), start_y + 2 + i as i32, color, RGB::named(BLACK), text);
+                    draw_batch.print_color(
+                        Point::new(center_x - (text.len() as i32 / 2), start_y + 2 + i as i32),
+                        text,
+                        ColorPair::new(color, BLACK)
+                    );
                 }
                 let footer = "[D] Delete Selected | [Enter] Load";
-                ctx.print_color(center_x - (footer.len() as i32 / 2), start_y + 12, RGB::named(GRAY), RGB::named(BLACK), footer);
+                draw_batch.print_color(
+                    Point::new(center_x - (footer.len() as i32 / 2), start_y + 12),
+                    footer,
+                    ColorPair::new(GRAY, BLACK)
+                );
             }
 
             if let Some(key) = ctx.key {
                 match key {
                     VirtualKeyCode::Up => {
+                        draw_batch.submit(0).expect("Batch submission failed");
                         if idx > 0 {
                             return Some(RunState::MainMenu { selection: MainMenuSelection::LoadGame { selection: idx - 1, cached_saves: saves } });
                         } else {
@@ -77,6 +108,7 @@ pub fn tick(ctx: &mut BTerm, world_manager: &mut WorldManager, selection: MainMe
                         }
                     }
                     VirtualKeyCode::Down => {
+                        draw_batch.submit(0).expect("Batch submission failed");
                         if !saves.is_empty() && idx < saves.len() - 1 {
                             return Some(RunState::MainMenu { selection: MainMenuSelection::LoadGame { selection: idx + 1, cached_saves: saves } });
                         } else {
@@ -85,6 +117,7 @@ pub fn tick(ctx: &mut BTerm, world_manager: &mut WorldManager, selection: MainMe
                     }
                     VirtualKeyCode::D => {
                         if !saves.is_empty() {
+                            draw_batch.submit(0).expect("Batch submission failed");
                             return Some(RunState::MainMenu { selection: MainMenuSelection::ConfirmDelete { selection: idx, cached_saves: saves } });
                         }
                     }
@@ -94,7 +127,7 @@ pub fn tick(ctx: &mut BTerm, world_manager: &mut WorldManager, selection: MainMe
                             if let Some((x, y)) = parse_save_name(save_name) {
                                 match load_region(x, y) {
                                     Ok(region) => {
-                                        world_manager.clear(sw as i32, sh as i32);
+                                        world_manager.clear(LOGICAL_WIDTH, LOGICAL_HEIGHT);
                                         world_manager.world_map.map.tiles = region.tiles.clone();
                                         world_manager.world_map.map.update_map_metadata(None);
 
@@ -119,11 +152,16 @@ pub fn tick(ctx: &mut BTerm, world_manager: &mut WorldManager, selection: MainMe
                                             if snp.is_infection_source { world_manager.world.insert_one(e, InfectionSource).unwrap(); }
                                         }
                                         world_manager.world_map.loaded_regions.insert((x, y));
+                                        draw_batch.submit(0).expect("Batch submission failed");
                                         return Some(RunState::InGame);
                                     }
                                     Err(e) => {
                                         let err_msg = format!("Error: {}", e);
-                                        ctx.print_color(center_x - (err_msg.len() as i32 / 2), start_y + 14, RGB::named(RED), RGB::named(BLACK), err_msg);
+                                        draw_batch.print_color(
+                                            Point::new(center_x - (err_msg.len() as i32 / 2), start_y + 14),
+                                            err_msg,
+                                            ColorPair::new(RED, BLACK)
+                                        );
                                     }
                                 }
                             }
@@ -136,11 +174,23 @@ pub fn tick(ctx: &mut BTerm, world_manager: &mut WorldManager, selection: MainMe
         MainMenuSelection::ConfirmDelete { selection: idx, cached_saves: saves } => {
             let start_y = center_y + 2;
             let msg1 = "¿ELIMINAR REGISTRO?";
-            ctx.print_color(center_x - (msg1.len() as i32 / 2), start_y, RGB::named(RED), RGB::named(BLACK), msg1);
+            draw_batch.print_color(
+                Point::new(center_x - (msg1.len() as i32 / 2), start_y),
+                msg1,
+                ColorPair::new(RED, BLACK)
+            );
             let file_msg = format!("{}", saves[idx]);
-            ctx.print_color(center_x - (file_msg.len() as i32 / 2), start_y + 2, RGB::named(WHITE), RGB::named(BLACK), file_msg);
+            draw_batch.print_color(
+                Point::new(center_x - (file_msg.len() as i32 / 2), start_y + 2),
+                file_msg,
+                ColorPair::new(WHITE, BLACK)
+            );
             let msg2 = "[Y] Confirmar | [N] Cancelar";
-            ctx.print_color(center_x - (msg2.len() as i32 / 2), start_y + 4, RGB::named(YELLOW), RGB::named(BLACK), msg2);
+            draw_batch.print_color(
+                Point::new(center_x - (msg2.len() as i32 / 2), start_y + 4),
+                msg2,
+                ColorPair::new(YELLOW, BLACK)
+            );
 
             if let Some(key) = ctx.key {
                 match key {
@@ -148,11 +198,13 @@ pub fn tick(ctx: &mut BTerm, world_manager: &mut WorldManager, selection: MainMe
                         let path = format!("saves/{}", saves[idx]);
                         let _ = fs::remove_file(path);
                         let new_saves = get_save_list();
+                        draw_batch.submit(0).expect("Batch submission failed");
                         return Some(RunState::MainMenu { 
                             selection: MainMenuSelection::LoadGame { selection: 0, cached_saves: new_saves } 
                         });
                     }
                     VirtualKeyCode::N | VirtualKeyCode::Escape => {
+                        draw_batch.submit(0).expect("Batch submission failed");
                         return Some(RunState::MainMenu { selection: MainMenuSelection::LoadGame { selection: idx, cached_saves: saves } });
                     }
                     _ => {}
@@ -160,34 +212,78 @@ pub fn tick(ctx: &mut BTerm, world_manager: &mut WorldManager, selection: MainMe
             }
         }
         MainMenuSelection::Laboratory => {
-            draw_main_menu_items(ctx, 2, center_x, center_y);
-            if let Some(VirtualKeyCode::Return) = ctx.key { return Some(RunState::Laboratory); }
-            if let Some(VirtualKeyCode::Up) = ctx.key { return Some(RunState::MainMenu { selection: MainMenuSelection::LoadGame { selection: 0, cached_saves: get_save_list() } }); }
-            if let Some(VirtualKeyCode::Down) = ctx.key { return Some(RunState::MainMenu { selection: MainMenuSelection::Options }); }
+            draw_main_menu_items(&mut draw_batch, 2, center_x, center_y);
+            if let Some(key) = ctx.key {
+                match key {
+                    VirtualKeyCode::Return => {
+                        draw_batch.submit(0).expect("Batch submission failed");
+                        return Some(RunState::Laboratory);
+                    }
+                    VirtualKeyCode::Up => {
+                        draw_batch.submit(0).expect("Batch submission failed");
+                        return Some(RunState::MainMenu { selection: MainMenuSelection::LoadGame { selection: 0, cached_saves: get_save_list() } });
+                    }
+                    VirtualKeyCode::Down => {
+                        draw_batch.submit(0).expect("Batch submission failed");
+                        return Some(RunState::MainMenu { selection: MainMenuSelection::Options });
+                    }
+                    _ => {}
+                }
+            }
         }
         MainMenuSelection::Options => {
-            draw_main_menu_items(ctx, 3, center_x, center_y);
-            if let Some(VirtualKeyCode::Return) = ctx.key { return Some(RunState::Options { selection: 0 }); }
-            if let Some(VirtualKeyCode::Up) = ctx.key { return Some(RunState::MainMenu { selection: MainMenuSelection::Laboratory }); }
-            if let Some(VirtualKeyCode::Down) = ctx.key { return Some(RunState::MainMenu { selection: MainMenuSelection::Quit }); }
+            draw_main_menu_items(&mut draw_batch, 3, center_x, center_y);
+            if let Some(key) = ctx.key {
+                match key {
+                    VirtualKeyCode::Return => {
+                        draw_batch.submit(0).expect("Batch submission failed");
+                        return Some(RunState::Options { selection: 0 });
+                    }
+                    VirtualKeyCode::Up => {
+                        draw_batch.submit(0).expect("Batch submission failed");
+                        return Some(RunState::MainMenu { selection: MainMenuSelection::Laboratory });
+                    }
+                    VirtualKeyCode::Down => {
+                        draw_batch.submit(0).expect("Batch submission failed");
+                        return Some(RunState::MainMenu { selection: MainMenuSelection::Quit });
+                    }
+                    _ => {}
+                }
+            }
         }
         MainMenuSelection::Quit => {
-            draw_main_menu_items(ctx, 4, center_x, center_y);
-            if let Some(VirtualKeyCode::Return) = ctx.key { return Some(RunState::Quit); }
-            if let Some(VirtualKeyCode::Up) = ctx.key { return Some(RunState::MainMenu { selection: MainMenuSelection::Options }); }
+            draw_main_menu_items(&mut draw_batch, 4, center_x, center_y);
+            if let Some(key) = ctx.key {
+                match key {
+                    VirtualKeyCode::Return => {
+                        draw_batch.submit(0).expect("Batch submission failed");
+                        return Some(RunState::Quit);
+                    }
+                    VirtualKeyCode::Up => {
+                        draw_batch.submit(0).expect("Batch submission failed");
+                        return Some(RunState::MainMenu { selection: MainMenuSelection::Options });
+                    }
+                    _ => {}
+                }
+            }
         }
     }
 
+    draw_batch.submit(0).expect("Batch submission failed");
     None
 }
 
-fn draw_main_menu_items(ctx: &mut BTerm, selected_idx: usize, center_x: i32, center_y: i32) {
+fn draw_main_menu_items(draw_batch: &mut DrawBatch, selected_idx: usize, center_x: i32, center_y: i32) {
     let items = ["Nueva Partida", "Cargar Mundo", "Laboratorio", "Opciones", "Salir"];
     for (i, item) in items.iter().enumerate() {
-        let color = if i == selected_idx { RGB::named(YELLOW) } else { RGB::named(WHITE) };
+        let color = if i == selected_idx { YELLOW } else { WHITE };
         let marker = if i == selected_idx { ">> " } else { "   " };
         let text = format!("{}{}", marker, item);
-        ctx.print_color(center_x - (text.len() as i32 / 2), (center_y - 6) + i as i32 * 2, color, RGB::named(BLACK), text);
+        draw_batch.print_color(
+            Point::new(center_x - (text.len() as i32 / 2), (center_y - 6) + i as i32 * 2),
+            text,
+            ColorPair::new(color, BLACK)
+        );
     }
 }
 

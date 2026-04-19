@@ -9,16 +9,7 @@ use states::RunState;
 use crate::core::world::WorldManager;
 use crate::core::chronometry::TimeState;
 use crate::utils::config::Settings;
-
-pub trait FullscreenToggle {
-    fn with_fullscreen(&mut self, fullscreen: bool);
-}
-
-impl FullscreenToggle for BTerm {
-    fn with_fullscreen(&mut self, _fullscreen: bool) {
-        // NOTA: bracket-lib 0.8 no expone el cambio de pantalla completa en BTerm directamente.
-    }
-}
+use crate::utils::ui_constants::*;
 
 struct State {
     pub run_state: RunState,
@@ -29,7 +20,7 @@ struct State {
 
 impl GameState for State {
     fn tick(&mut self, ctx: &mut BTerm) {
-        // 4. Cierre del Sistema (Nivel más alto del tick)
+        // Cierre del Sistema (Nivel más alto del tick)
         if ctx.key == Some(VirtualKeyCode::F4) && ctx.alt {
             ctx.quit();
             return;
@@ -38,14 +29,10 @@ impl GameState for State {
         // Global Input Detection
         if let Some(key) = ctx.key {
             match key {
-                // Global Toggle Fullscreen (Spec-15)
-                VirtualKeyCode::F11 => {
+                // Global Toggle Fullscreen (Puramente informativo en runtime para v0.8)
+                VirtualKeyCode::F11 | VirtualKeyCode::Return if ctx.alt => {
                     self.fullscreen = !self.fullscreen;
-                    ctx.with_fullscreen(self.fullscreen);
-                }
-                VirtualKeyCode::Return if ctx.alt => {
-                    self.fullscreen = !self.fullscreen;
-                    ctx.with_fullscreen(self.fullscreen);
+                    // El cambio real requiere reinicio para aplicarse en bracket-lib 0.8
                 }
                 _ => {}
             }
@@ -79,24 +66,27 @@ impl GameState for State {
 
 fn main() -> BError {
     let settings = Settings::load();
-    let (width, height) = settings.get_dimensions();
-
+    
+    // Configuración de Consolas con Resolución Lógica Fija (UI Upscaling)
     let context = BTermBuilder::new()
         .with_title("Rogue-Evolution")
-        .with_dimensions(width, height)
+        .with_dimensions(LOGICAL_WIDTH, LOGICAL_HEIGHT)
         .with_tile_dimensions(8, 16)
         .with_font("vga8x16.png", 8, 16)
         .with_fullscreen(settings.fullscreen)
         .with_advanced_input(true)
         .with_fps_cap(60.0)
-        .with_simple_console(width, height, "vga8x16.png")
-        .with_simple_console_no_bg(width, height, "vga8x16.png")
-        .with_simple_console_no_bg(width, height, "vga8x16.png")
+        // Capa 0: Terreno / Mundo
+        .with_simple_console(LOGICAL_WIDTH, LOGICAL_HEIGHT, "vga8x16.png")
+        // Capa 1: Entidades
+        .with_simple_console_no_bg(LOGICAL_WIDTH, LOGICAL_HEIGHT, "vga8x16.png")
+        // Capa 2: UI / Menús
+        .with_simple_console_no_bg(LOGICAL_WIDTH, LOGICAL_HEIGHT, "vga8x16.png")
         .build()?;
 
     let gs = State {
         run_state: RunState::MainMenu { selection: states::MainMenuSelection::NewGame },
-        world_manager: WorldManager::new(width as i32, height as i32),
+        world_manager: WorldManager::new(LOGICAL_WIDTH, LOGICAL_HEIGHT),
         time_state: TimeState::new(),
         fullscreen: settings.fullscreen,
     };
