@@ -36,7 +36,7 @@ pub fn generate_caverns(width: i32, height: i32, seed: u64) -> Map {
 
     let start_idx = map.xy_idx(width / 2, height / 2);
     ensure_connectivity(&mut map, start_idx);
-    map.populate_blocked();
+    map.update_map_metadata(None);
     map
 }
 
@@ -105,7 +105,7 @@ pub fn drunkard_walk(width: i32, height: i32, seed: u64) -> Map {
     let start_idx = map.xy_idx(mid_x, mid_y);
     ensure_connectivity(&mut map, start_idx);
 
-    map.populate_blocked();
+    map.update_map_metadata(None);
     map
 }
 

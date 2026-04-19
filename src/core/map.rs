@@ -41,20 +41,21 @@ impl Map {
         !self.blocked[idx]
     }
 
-    /// Sincroniza el vector blocked basándose únicamente en los muros.
-    pub fn populate_blocked(&mut self) {
+    /// Actualiza toda la metadata del mapa (muros y entidades bloqueantes) en un solo ciclo de vida.
+    /// Esto elimina la redundancia y optimiza el uso del caché L1/L2 del Celeron.
+    pub fn update_map_metadata(&mut self, world: Option<&World>) {
+        // Fase 1: Sincronizar bloqueos basados en la topología estática (muros)
         for (i, tile) in self.tiles.iter().enumerate() {
             self.blocked[i] = *tile == TileType::Wall;
         }
-    }
 
-    /// Limpia el vector blocked con los muros y luego bloquea tiles con entidades (DOD).
-    pub fn update_blocked_from_ecs(&mut self, world: &World) {
-        self.populate_blocked();
-        for (_entity, (pos, _)) in world.query::<(&Position, &BlocksTile)>().iter() {
-            let idx = self.xy_idx(pos.x, pos.y);
-            if idx < self.blocked.len() {
-                self.blocked[idx] = true;
+        // Fase 2: Integrar bloqueos dinámicos desde el ECS (entidades con BlocksTile)
+        if let Some(world) = world {
+            for (_entity, (pos, _)) in world.query::<(&Position, &BlocksTile)>().iter() {
+                let idx = self.xy_idx(pos.x, pos.y);
+                if idx < self.blocked.len() {
+                    self.blocked[idx] = true;
+                }
             }
         }
     }
