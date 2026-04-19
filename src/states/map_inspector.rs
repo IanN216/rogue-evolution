@@ -10,8 +10,12 @@ pub fn tick(ctx: &mut BTerm, world_manager: &mut WorldManager, zoom: f32, cursor
     let (mut cursor_x, mut cursor_y) = cursor;
     let mut current_zoom = zoom;
 
+    // Omniscient Visibility: Force all tiles to be visible and revealed (User Directive)
+    let map = &mut world_manager.world_map.map;
+    for r in map.revealed_tiles.iter_mut() { *r = true; }
+    for v in map.visible_tiles.iter_mut() { *v = true; }
+
     // Viewport calculation based on zoom
-    let map = &world_manager.world_map.map; 
     let view_w = (80.0 / current_zoom) as i32;
     let view_h = (50.0 / current_zoom) as i32;
     
@@ -53,10 +57,12 @@ pub fn tick(ctx: &mut BTerm, world_manager: &mut WorldManager, zoom: f32, cursor
     // HUD
     ctx.set_active_console(1);
     ctx.cls();
-    ctx.print(1, 1, format!("Inspector - Zoom: {:.1}x", current_zoom));
+    ctx.print(1, 1, format!("Inspector Erudito - Zoom: {:.1}x", current_zoom));
     ctx.print(1, 2, format!("Cursor: ({}, {})", cursor_x, cursor_y));
     ctx.print(1, 48, "[+/-] Zoom | [Arrows] Move | [Esc] Exit");
 
+    // Input handling
+    // En 0.8 BEvent no tiene MouseWheel en todas las plataformas, usamos +/- como primario.
     if let Some(key) = ctx.key {
         match key {
             VirtualKeyCode::Escape => return Some(RunState::MainMenu { selection: crate::states::MainMenuSelection::NewGame }),

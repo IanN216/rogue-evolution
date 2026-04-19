@@ -2,41 +2,107 @@ use super::map::{Map, TileType};
 use bracket_lib::prelude::*;
 use rayon::prelude::*;
 
-pub fn generate_caverns(width: i32, height: i32, seed: u64) -> Map {
-    let mut rng = RandomNumberGenerator::seeded(seed);
-    let mut map = Map::new(width, height);
+/// Fase 1: Generación de Cavernas mediante Autómatas Celulares (Spec-1)
+pub fn generate_caverns_step(map: &mut Map, iteration: usize, seed: u64) -> f32 {
+    let mut rng = RandomNumberGenerator::seeded(seed + iteration as u64);
+    let width = map.width;
+    let height = map.height;
 
-    // Initial random distribution
-    for tile in map.tiles.iter_mut() {
-        let roll = rng.range(0, 100);
-        if roll < 45 { *tile = TileType::Floor; }
-        else { *tile = TileType::Wall; }
+    if iteration == 0 {
+        // Initial random distribution
+        for tile in map.tiles.iter_mut() {
+            let roll = rng.range(0, 100);
+            if roll < 45 { *tile = TileType::Floor; }
+            else { *tile = TileType::Wall; }
+        }
+        return 0.1;
     }
 
     // Apply Cellular Automata rules
-    for _ in 0..10 {
-        let mut new_tiles = map.tiles.clone();
+    let mut new_tiles = map.tiles.clone();
+    
+    // Parallel processing using Rayon
+    new_tiles.par_iter_mut().enumerate().for_each(|(idx, tile)| {
+        let x = idx as i32 % width;
+        let y = idx as i32 / width;
         
-        // Parallel processing using Rayon
-        new_tiles.par_iter_mut().enumerate().for_each(|(idx, tile)| {
-            let x = idx as i32 % width;
-            let y = idx as i32 / width;
-            
-            // Skip boundaries
-            if x > 0 && x < width - 1 && y > 0 && y < height - 1 {
-                let neighbors = count_neighbors_static(&map.tiles, width, x, y);
-                if neighbors > 4 || neighbors == 0 { *tile = TileType::Wall; }
-                else { *tile = TileType::Floor; }
-            } else {
-                *tile = TileType::Wall;
-            }
-        });
-        map.tiles = new_tiles;
+        // Skip boundaries
+        if x > 0 && x < width - 1 && y > 0 && y < height - 1 {
+            let neighbors = count_neighbors_static(&map.tiles, width, x, y);
+            if neighbors > 4 || neighbors == 0 { *tile = TileType::Wall; }
+            else { *tile = TileType::Floor; }
+        } else {
+            *tile = TileType::Wall;
+        }
+    });
+    map.tiles = new_tiles;
+    
+    (iteration as f32 / 10.0).min(1.0)
+}
+
+/// Fase 2: Drunkard's Walk Regional (Spec-1.1)
+pub fn drunkard_walk_step(map: &mut Map, step: usize, seed: u64) -> f32 {
+    let mut rng = RandomNumberGenerator::seeded(seed + step as u64);
+    let width = map.width;
+    let height = map.height;
+    
+    if step == 0 {
+        for tile in map.tiles.iter_mut() { *tile = TileType::Wall; }
     }
 
-    let start_idx = map.xy_idx(width / 2, height / 2);
-    ensure_connectivity(&mut map, start_idx);
+    let target_floor = (width * height) as f32 * 0.40;
+    let mut floor_count = map.tiles.iter().filter(|&&t| t == TileType::Floor).count();
+
+    if (floor_count as f32) < target_floor {
+        let mut drunk_x = rng.range(1, width - 1);
+        let mut drunk_y = rng.range(1, height - 1);
+        let mut lifetime = 200; 
+
+        while lifetime > 0 {
+            let idx = map.xy_idx(drunk_x, drunk_y);
+            if map.tiles[idx] == TileType::Wall {
+                map.tiles[idx] = TileType::Floor;
+                floor_count += 1;
+            }
+
+            match rng.range(0, 4) {
+                0 => if drunk_x > 1 { drunk_x -= 1; }
+                1 => if drunk_x < width - 2 { drunk_x += 1; }
+                2 => if drunk_y > 1 { drunk_y -= 1; }
+                _ => if drunk_y < height - 2 { drunk_y += 1; }
+            }
+
+            lifetime -= 1;
+            if (floor_count as f32) >= target_floor { break; }
+        }
+    }
+
+    (floor_count as f32 / target_floor).min(1.0)
+}
+
+/// Fase 2.1: Salidas Regionales
+pub fn add_regional_exits(map: &mut Map) {
+    let mid_x = map.width / 2;
+    let mid_y = map.height / 2;
+    for y in 0..map.height { let idx = map.xy_idx(mid_x, y); map.tiles[idx] = TileType::Floor; }
+    for x in 0..map.width { let idx = map.xy_idx(x, mid_y); map.tiles[idx] = TileType::Floor; }
+}
+
+/// Fase 3: Validación de Conectividad (Spec-1.1)
+pub fn ensure_connectivity_step(map: &mut Map) {
+    let mid_x = map.width / 2;
+    let mid_y = map.height / 2;
+    let start_idx = map.xy_idx(mid_x, mid_y);
+    ensure_connectivity(map, start_idx);
     map.update_map_metadata(None);
+}
+
+pub fn generate_caverns(width: i32, height: i32, seed: u64) -> Map {
+    let mut map = Map::new(width, height);
+    for i in 0..11 {
+        generate_caverns_step(&mut map, i, seed);
+    }
+    ensure_connectivity_step(&mut map);
     map
 }
 
@@ -173,11 +239,13 @@ mod tests {
 
     #[test]
     fn test_drunkard_connectivity_edges() {
-        let map = drunkard_walk(80, 50, 99);
+        let w = 80;
+        let h = 50;
+        let map = drunkard_walk(w, h, 99);
         // Verificar que los puntos cardinales medios sean Floor
-        assert_eq!(map.tiles[map.xy_idx(40, 0)], TileType::Floor, "Falla salida Norte");
-        assert_eq!(map.tiles[map.xy_idx(40, 49)], TileType::Floor, "Falla salida Sur");
-        assert_eq!(map.tiles[map.xy_idx(0, 25)], TileType::Floor, "Falla salida Oeste");
-        assert_eq!(map.tiles[map.xy_idx(79, 25)], TileType::Floor, "Falla salida Este");
+        assert_eq!(map.tiles[map.xy_idx(w / 2, 0)], TileType::Floor, "Falla salida Norte");
+        assert_eq!(map.tiles[map.xy_idx(w / 2, h - 1)], TileType::Floor, "Falla salida Sur");
+        assert_eq!(map.tiles[map.xy_idx(0, h / 2)], TileType::Floor, "Falla salida Oeste");
+        assert_eq!(map.tiles[map.xy_idx(w - 1, h / 2)], TileType::Floor, "Falla salida Este");
     }
 }

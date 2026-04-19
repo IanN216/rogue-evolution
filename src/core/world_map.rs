@@ -47,9 +47,9 @@ pub struct WorldMap {
 }
 
 impl WorldMap {
-    pub fn new() -> Self {
+    pub fn new(width: i32, height: i32) -> Self {
         Self {
-            map: Map::new(80, 50),
+            map: Map::new(width, height),
             regions: HashMap::new(),
             loaded_regions: HashSet::new(),
         }

@@ -17,7 +17,6 @@ pub trait FullscreenToggle {
 impl FullscreenToggle for BTerm {
     fn with_fullscreen(&mut self, _fullscreen: bool) {
         // NOTA: bracket-lib 0.8 no expone el cambio de pantalla completa en BTerm directamente.
-        // Esta implementación cumple con la interfaz requerida por Spec-15.
     }
 }
 
@@ -30,9 +29,16 @@ struct State {
 
 impl GameState for State {
     fn tick(&mut self, ctx: &mut BTerm) {
-        // Global Toggle Fullscreen (Spec-15)
+        // 4. Cierre del Sistema (Nivel más alto del tick)
+        if ctx.key == Some(VirtualKeyCode::F4) && ctx.alt {
+            ctx.quit();
+            return;
+        }
+
+        // Global Input Detection
         if let Some(key) = ctx.key {
             match key {
+                // Global Toggle Fullscreen (Spec-15)
                 VirtualKeyCode::F11 => {
                     self.fullscreen = !self.fullscreen;
                     ctx.with_fullscreen(self.fullscreen);
@@ -43,6 +49,11 @@ impl GameState for State {
                 }
                 _ => {}
             }
+        }
+
+        if self.run_state == RunState::Quit {
+            ctx.quit();
+            return;
         }
 
         let new_runstate = match &self.run_state {
@@ -58,7 +69,7 @@ impl GameState for State {
                     None
                 }
             }
-            RunState::MapGen => states::map_gen_screen::tick(ctx, &mut self.world_manager),
+            RunState::MapGen { phase, progress, phase_step } => states::map_gen_screen::tick(ctx, &mut self.world_manager, *phase, *progress, *phase_step),
             RunState::InGame | RunState::PlayerTurn | RunState::MonsterTurn => {
                 states::ingame::tick(ctx, &mut self.world_manager, &mut self.time_state, self.run_state.clone())
             }
@@ -66,6 +77,8 @@ impl GameState for State {
             RunState::Laboratory => states::laboratory::tick(ctx, &mut self.world_manager),
             RunState::MapInspector { zoom, cursor } => states::map_inspector::tick(ctx, &mut self.world_manager, *zoom, *cursor),
             RunState::Options { selection } => states::options::tick(ctx, *selection),
+            RunState::PauseMenu { selection } => states::pause_menu::tick(ctx, &mut self.world_manager, *selection),
+            RunState::Quit => None, 
         };
 
         if let Some(new_state) = new_runstate {
@@ -92,7 +105,7 @@ fn main() -> BError {
 
     let gs = State {
         run_state: RunState::MainMenu { selection: states::MainMenuSelection::NewGame },
-        world_manager: WorldManager::new(),
+        world_manager: WorldManager::new(width as i32, height as i32),
         time_state: TimeState::new(),
         fullscreen: settings.fullscreen,
     };

@@ -9,15 +9,21 @@ use crate::components::items::{Blighted, InfectionSource};
 use std::fs;
 
 pub fn tick(ctx: &mut BTerm, world_manager: &mut WorldManager, selection: MainMenuSelection) -> Option<RunState> {
-    ctx.set_active_console(1);
-    ctx.cls();
+    // 1. Método 'Master Clear'
+    for i in 0..2 {
+        ctx.set_active_console(i);
+        ctx.cls();
+    }
 
-    ctx.print_color_centered(5, RGB::named(YELLOW), RGB::named(BLACK), "ROGUE-EVOLUTION");
-    ctx.print_color_centered(7, RGB::named(CYAN), RGB::named(BLACK), "Celeron N2806 Optimized Edition");
+    let (sw, sh) = ctx.get_char_size();
+    let center_y = sh as i32 / 2;
+
+    ctx.print_color_centered(center_y - 12, RGB::named(YELLOW), RGB::named(BLACK), "ROGUE-EVOLUTION");
+    ctx.print_color_centered(center_y - 10, RGB::named(CYAN), RGB::named(BLACK), "Celeron N2806 Optimized Edition");
 
     match selection {
         MainMenuSelection::NewGame => {
-            draw_main_menu_items(ctx, 0);
+            draw_main_menu_items(ctx, 0, center_y);
 
             if let Some(key) = ctx.key {
                 match key {
@@ -31,29 +37,29 @@ pub fn tick(ctx: &mut BTerm, world_manager: &mut WorldManager, selection: MainMe
                         });
                     }
                     VirtualKeyCode::Return => {
-                        world_manager.clear();
-                        return Some(RunState::MapGen);
+                        world_manager.clear(sw as i32, sh as i32);
+                        return Some(RunState::MapGen { phase: 0, progress: 0.0, phase_step: 0 });
                     }
                     _ => {}
                 }
             }
         }
         MainMenuSelection::LoadGame { selection: idx, cached_saves: saves } => {
-            draw_main_menu_items(ctx, 1);
+            draw_main_menu_items(ctx, 1, center_y);
 
-            // Draw save list
-            let mut y = 22;
-            ctx.print_color_centered(20, RGB::named(GRAY), RGB::named(BLACK), "--- SELECT SAVE ---");
+            let start_y = center_y + 2;
+            ctx.print_color_centered(start_y, RGB::named(GRAY), RGB::named(BLACK), "--- SELECT SAVE ---");
+            
             if saves.is_empty() {
-                ctx.print_color_centered(y, RGB::named(RED), RGB::named(BLACK), "No saves found");
+                ctx.print_color_centered(start_y + 2, RGB::named(RED), RGB::named(BLACK), "No saves found");
             } else {
                 for (i, save) in saves.iter().enumerate() {
+                    if i > 10 { break; } 
                     let color = if i == idx { RGB::named(YELLOW) } else { RGB::named(WHITE) };
                     let marker = if i == idx { "-> " } else { "   " };
-                    ctx.print_color_centered(y, color, RGB::named(BLACK), format!("{}{}", marker, save));
-                    y += 1;
+                    ctx.print_color_centered(start_y + 2 + i as i32, color, RGB::named(BLACK), format!("{}{}", marker, save));
                 }
-                ctx.print_color_centered(35, RGB::named(GRAY), RGB::named(BLACK), "[D] Delete Selected | [Enter] Load");
+                ctx.print_color_centered(start_y + 12, RGB::named(GRAY), RGB::named(BLACK), "[D] Delete Selected | [Enter] Load");
             }
 
             if let Some(key) = ctx.key {
@@ -84,12 +90,15 @@ pub fn tick(ctx: &mut BTerm, world_manager: &mut WorldManager, selection: MainMe
                         }
                     }
                     VirtualKeyCode::Return => {
-                        if !saves.is_empty() {
+                        if !saves.is_empty() && idx < saves.len() {
                             let save_name = &saves[idx];
                             if let Some((x, y)) = parse_save_name(save_name) {
                                 match load_region(x, y) {
                                     Ok(region) => {
-                                        world_manager.clear();
+                                        world_manager.clear(sw as i32, sh as i32);
+                                        world_manager.world_map.map.tiles = region.tiles.clone();
+                                        world_manager.world_map.map.update_map_metadata(None);
+
                                         for snp in region.entities {
                                             let e = world_manager.world.spawn((
                                                 snp.position,
@@ -114,7 +123,7 @@ pub fn tick(ctx: &mut BTerm, world_manager: &mut WorldManager, selection: MainMe
                                         return Some(RunState::InGame);
                                     }
                                     Err(e) => {
-                                        ctx.print_color_centered(40, RGB::named(RED), RGB::named(BLACK), format!("Error loading save: {}", e));
+                                        ctx.print_color_centered(start_y + 14, RGB::named(RED), RGB::named(BLACK), format!("Error: {}", e));
                                     }
                                 }
                             }
@@ -125,9 +134,10 @@ pub fn tick(ctx: &mut BTerm, world_manager: &mut WorldManager, selection: MainMe
             }
         }
         MainMenuSelection::ConfirmDelete { selection: idx, cached_saves: saves } => {
-            ctx.print_color_centered(20, RGB::named(RED), RGB::named(BLACK), "ARE YOU SURE YOU WANT TO DELETE THIS SAVE?");
-            ctx.print_color_centered(22, RGB::named(WHITE), RGB::named(BLACK), format!("File: {}", saves[idx]));
-            ctx.print_color_centered(24, RGB::named(YELLOW), RGB::named(BLACK), "[Y] Confirm Delete | [N] Cancel");
+            let start_y = center_y + 2;
+            ctx.print_color_centered(start_y, RGB::named(RED), RGB::named(BLACK), "¿ELIMINAR REGISTRO?");
+            ctx.print_color_centered(start_y + 2, RGB::named(WHITE), RGB::named(BLACK), format!("{}", saves[idx]));
+            ctx.print_color_centered(start_y + 4, RGB::named(YELLOW), RGB::named(BLACK), "[Y] Confirmar | [N] Cancelar");
 
             if let Some(key) = ctx.key {
                 match key {
@@ -149,54 +159,31 @@ pub fn tick(ctx: &mut BTerm, world_manager: &mut WorldManager, selection: MainMe
             }
         }
         MainMenuSelection::Laboratory => {
-            draw_main_menu_items(ctx, 2);
-
-            if let Some(key) = ctx.key {
-                match key {
-                    VirtualKeyCode::Up => {
-                        let saves = get_save_list();
-                        return Some(RunState::MainMenu { 
-                            selection: MainMenuSelection::LoadGame { selection: 0, cached_saves: saves } 
-                        });
-                    }
-                    VirtualKeyCode::Down => return Some(RunState::MainMenu { selection: MainMenuSelection::Options }),
-                    VirtualKeyCode::Return => return Some(RunState::Laboratory),
-                    _ => {}
-                }
-            }
+            draw_main_menu_items(ctx, 2, center_y);
+            if let Some(VirtualKeyCode::Return) = ctx.key { return Some(RunState::Laboratory); }
+            if let Some(VirtualKeyCode::Up) = ctx.key { return Some(RunState::MainMenu { selection: MainMenuSelection::LoadGame { selection: 0, cached_saves: get_save_list() } }); }
+            if let Some(VirtualKeyCode::Down) = ctx.key { return Some(RunState::MainMenu { selection: MainMenuSelection::Options }); }
         }
         MainMenuSelection::Options => {
-            draw_main_menu_items(ctx, 3);
-
-            if let Some(key) = ctx.key {
-                match key {
-                    VirtualKeyCode::Up => return Some(RunState::MainMenu { selection: MainMenuSelection::Laboratory }),
-                    VirtualKeyCode::Down => return Some(RunState::MainMenu { selection: MainMenuSelection::Quit }),
-                    VirtualKeyCode::Return => return Some(RunState::Options { selection: 0 }),
-                    _ => {}
-                }
-            }
+            draw_main_menu_items(ctx, 3, center_y);
+            if let Some(VirtualKeyCode::Return) = ctx.key { return Some(RunState::Options { selection: 0 }); }
+            if let Some(VirtualKeyCode::Up) = ctx.key { return Some(RunState::MainMenu { selection: MainMenuSelection::Laboratory }); }
+            if let Some(VirtualKeyCode::Down) = ctx.key { return Some(RunState::MainMenu { selection: MainMenuSelection::Quit }); }
         }
         MainMenuSelection::Quit => {
-            draw_main_menu_items(ctx, 4);
-
-            if let Some(key) = ctx.key {
-                match key {
-                    VirtualKeyCode::Up => return Some(RunState::MainMenu { selection: MainMenuSelection::Options }),
-                    VirtualKeyCode::Return => std::process::exit(0),
-                    _ => {}
-                }
-            }
+            draw_main_menu_items(ctx, 4, center_y);
+            if let Some(VirtualKeyCode::Return) = ctx.key { return Some(RunState::Quit); }
+            if let Some(VirtualKeyCode::Up) = ctx.key { return Some(RunState::MainMenu { selection: MainMenuSelection::Options }); }
         }
     }
 
     None
 }
 
-fn draw_main_menu_items(ctx: &mut BTerm, selected_idx: usize) {
-    let items = ["New Game", "Load Game", "Laboratory", "Options", "Quit"];
+fn draw_main_menu_items(ctx: &mut BTerm, selected_idx: usize, center_y: i32) {
+    let items = ["Nueva Partida", "Cargar Mundo", "Laboratorio", "Opciones", "Salir"];
     for (i, item) in items.iter().enumerate() {
-        draw_menu_item(ctx, 15 + i as i32, item, i == selected_idx);
+        draw_menu_item(ctx, (center_y - 6) + i as i32 * 2, item, i == selected_idx);
     }
 }
 
@@ -211,9 +198,7 @@ fn get_save_list() -> Vec<String> {
     if let Ok(entries) = fs::read_dir("saves") {
         for entry in entries.flatten() {
             if let Some(s) = entry.file_name().to_str() {
-                if s.ends_with(".bin") {
-                    saves.push(s.to_string());
-                }
+                if s.ends_with(".bin") { saves.push(s.to_string()); }
             }
         }
     }

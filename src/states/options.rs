@@ -3,26 +3,36 @@ use super::{RunState, MainMenuSelection};
 use crate::utils::config::{Settings, DisplayMode};
 
 pub fn tick(ctx: &mut BTerm, selection: usize) -> Option<RunState> {
+    // 1. Limpieza Total de Capas
+    ctx.set_active_console(0);
+    ctx.cls();
     ctx.set_active_console(1);
     ctx.cls();
 
-    ctx.print_color_centered(5, RGB::named(YELLOW), RGB::named(BLACK), "OPTIONS");
+    let (_, screen_h) = ctx.get_char_size();
+    let center_y = screen_h as i32 / 2;
+
+    ctx.print_color_centered(center_y - 10, RGB::named(YELLOW), RGB::named(BLACK), "CONFIGURACIÓN");
 
     let mut settings = Settings::load();
 
+    // Nombres Amigables (User Directive)
+    let label_windowed = format!("Ventana (80x50) {}", if settings.display_mode == DisplayMode::Windowed80x50 { "[*]" } else { "[ ]" });
+    let label_fullscreen = format!("Pantalla Completa (1366x768) {}", if settings.display_mode == DisplayMode::FullscreenNative170x48 { "[*]" } else { "[ ]" });
+
     let options = [
-        format!("Windowed (80x50) {}", if settings.display_mode == DisplayMode::Windowed80x50 { "[*]" } else { "[ ]" }),
-        format!("Fullscreen Native (170x48) {}", if settings.display_mode == DisplayMode::FullscreenNative170x48 { "[*]" } else { "[ ]" }),
-        "Back to Main Menu".to_string(),
+        label_windowed,
+        label_fullscreen,
+        "Guardar y Volver al Menú Principal".to_string(),
     ];
 
     for (i, option) in options.iter().enumerate() {
         let color = if i == selection { RGB::named(YELLOW) } else { RGB::named(WHITE) };
         let marker = if i == selection { ">> " } else { "   " };
-        ctx.print_color_centered(15 + i as i32, color, RGB::named(BLACK), format!("{}{}", marker, option));
+        ctx.print_color_centered(center_y + i as i32, color, RGB::named(BLACK), format!("{}{}", marker, option));
     }
 
-    ctx.print_color_centered(25, RGB::named(GRAY), RGB::named(BLACK), "Note: Resolution changes may require restart.");
+    ctx.print_color_centered(center_y + 10, RGB::named(GRAY), RGB::named(BLACK), "Nota: Los cambios de resolución requieren reiniciar el programa.");
 
     if let Some(key) = ctx.key {
         match key {
@@ -47,6 +57,7 @@ pub fn tick(ctx: &mut BTerm, selection: usize) -> Option<RunState> {
                         settings.save();
                     }
                     2 => {
+                        settings.save();
                         return Some(RunState::MainMenu { selection: MainMenuSelection::Options });
                     }
                     _ => {}

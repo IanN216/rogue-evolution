@@ -4,6 +4,7 @@ pub mod ingame;
 pub mod laboratory;
 pub mod map_inspector;
 pub mod options;
+pub mod pause_menu;
 
 #[derive(PartialEq, Clone, Debug)]
 pub enum MainMenuSelection {
@@ -19,11 +20,13 @@ pub enum MainMenuSelection {
 pub enum RunState {
     MainMenu { selection: MainMenuSelection },
     CharacterCreation,
-    MapGen,
+    MapGen { phase: usize, progress: f32, phase_step: usize },
     InGame,
     PlayerTurn,
     MonsterTurn,
     Laboratory,
     MapInspector { zoom: f32, cursor: (i32, i32) },
     Options { selection: usize },
+    PauseMenu { selection: usize },
+    Quit,
 }

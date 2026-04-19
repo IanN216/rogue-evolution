@@ -15,17 +15,17 @@ pub struct WorldManager {
 }
 
 impl WorldManager {
-    pub fn new() -> Self {
+    pub fn new(width: i32, height: i32) -> Self {
         Self {
             world: World::new(),
-            world_map: WorldMap::new(),
+            world_map: WorldMap::new(width, height),
         }
     }
 
     /// Vacía el mundo de entidades y reinicia el mapa (útil al volver al menú principal)
-    pub fn clear(&mut self) {
+    pub fn clear(&mut self, width: i32, height: i32) {
         self.world = World::new();
-        self.world_map = WorldMap::new();
+        self.world_map = WorldMap::new(width, height);
     }
 
     /// Sistema de movimiento masivo optimizado para Celeron (Zero-Allocation)
@@ -145,7 +145,7 @@ mod tests {
 
     #[test]
     fn test_persistence_streaming() {
-        let mut manager = WorldManager::new();
+        let mut manager = WorldManager::new(80, 50);
         let player_pos = Position { x: 0, y: 0 };
         
         // Spawn una entidad cerca del jugador
