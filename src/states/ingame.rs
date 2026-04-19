@@ -45,6 +45,16 @@ pub fn tick(ctx: &mut BTerm, world_manager: &mut WorldManager, time_state: &mut 
         RunState::MonsterTurn => {
             time_state.update();
             process_swarm_ai(&mut world_manager.world, &world_manager.world_map.map);
+            
+            // Sistemas Biológicos (Celeron Optimized)
+            crate::systems::biology::metabolism::process_metabolism(&mut world_manager.world);
+            crate::systems::biology::infection::process_infection(
+                &mut world_manager.world, 
+                world_manager.world_map.map.width, 
+                world_manager.world_map.map.height
+            );
+            crate::systems::biology::evolution::process_evolution(&mut world_manager.world, time_state.ticks);
+
             Some(RunState::InGame)
         }
         _ => None
