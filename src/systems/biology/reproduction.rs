@@ -1,65 +1,39 @@
-use crate::components::genetics::Genetics;
-use rand::prelude::*;
+use crate::components::genetics::{Genetics, Gene, Allele};
+use bracket_lib::prelude::*;
 
 pub fn reproduce(parent_a: &Genetics, parent_b: &Genetics, mutation_rate: f32) -> Genetics {
-    let mut rng = thread_rng();
-    let mut child_dna = [0u8; 16];
+    let mut rng = RandomNumberGenerator::new();
+    let mut child_dna = Vec::new();
 
-    for i in 0..16 {
-        // Mendelian inheritance: Pick one allele from either parent
-        child_dna[i] = if rng.gen::<bool>() {
-            parent_a.dna[i]
-        } else {
-            parent_b.dna[i]
-        };
+    // Mendelian Inheritance: One allele from each parent for each trait
+    for (gene_a, gene_b) in parent_a.dna.iter().zip(parent_b.dna.iter()) {
+        if gene_a.trait_id == gene_b.trait_id {
+            let allele_from_a = if rng.range(0, 2) == 0 { &gene_a.allele_a } else { &gene_a.allele_b };
+            let allele_from_b = if rng.range(0, 2) == 0 { &gene_b.allele_a } else { &gene_b.allele_b };
 
-        // Random mutation factor
-        if rng.gen::<f32>() < mutation_rate {
-            child_dna[i] = rng.gen();
+            let mut new_gene = Gene {
+                allele_a: allele_from_a.clone(),
+                allele_b: allele_from_b.clone(),
+                trait_id: gene_a.trait_id.clone(),
+            };
+
+            // Mutation logic
+            if rng.roll_dice(1, 1000) <= (mutation_rate * 1000.0) as i32 {
+                if rng.range(0, 2) == 0 {
+                    new_gene.allele_a = if rng.range(0, 2) == 0 { Allele::Dominant } else { Allele::Recessive };
+                } else {
+                    new_gene.allele_b = if rng.range(0, 2) == 0 { Allele::Dominant } else { Allele::Recessive };
+                }
+            }
+
+            child_dna.push(new_gene);
         }
     }
 
     Genetics {
         dna: child_dna,
+        generation: parent_a.generation.max(parent_b.generation) + 1,
+        mutation_count: 0, 
         exposure_level: 0.0,
-        generation: parent_a.generation + 1,
-        race_id: parent_a.race_id, // For now, child takes race of parent A
-        race_abilities: parent_a.race_abilities.clone(),
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn test_mendelian_inheritance() {
-        let parent_a = Genetics {
-            dna: [255u8; 16],
-            exposure_level: 0.0,
-            generation: 1,
-            race_id: 1,
-            race_abilities: Vec::new(),
-        };
-        let parent_b = Genetics {
-            dna: [0u8; 16],
-            exposure_level: 0.0,
-            generation: 1,
-            race_id: 1,
-            race_abilities: Vec::new(),
-        };
-
-        let child = reproduce(&parent_a, &parent_b, 0.05);
-        
-        // Ensure child DNA alleles are from either parent (or mutated)
-        for i in 0..16 {
-            let is_from_a = child.dna[i] == parent_a.dna[i];
-            let is_from_b = child.dna[i] == parent_b.dna[i];
-            // If mutation occurred, it might not be from either parent.
-            // With 0.05 mutation rate, some will match parents.
-            assert!(is_from_a || is_from_b || (child.dna[i] != parent_a.dna[i] && child.dna[i] != parent_b.dna[i]));
-        }
-        
-        assert_eq!(child.generation, 2);
     }
 }

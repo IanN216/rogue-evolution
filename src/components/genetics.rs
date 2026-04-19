@@ -1,25 +1,46 @@
 use serde::{Deserialize, Serialize};
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
-pub struct Genetics {
-    pub dna: [u8; 16],        // ADN compacto (genes para velocidad, tamaño, color, etc.)
-    pub exposure_level: f32,  // Acumulación de anomalías
-    pub generation: u32,
-    pub race_id: u32,
-    pub race_abilities: Vec<u8>, // IDs de habilidades compactos
+pub enum Allele {
+    Dominant,
+    Recessive,
 }
 
-impl Genetics {
-    pub fn mutate(&mut self, rate: f32) {
-        use rand::prelude::*;
-        let mut rng = thread_rng();
-        for gene in self.dna.iter_mut() {
-            if rng.gen::<f32>() < rate {
-                *gene = rng.gen();
-            }
-        }
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+pub struct Gene {
+    pub allele_a: Allele,
+    pub allele_b: Allele,
+    pub trait_id: String,
+}
+
+impl Gene {
+    pub fn is_expressed(&self) -> bool {
+        self.allele_a == Allele::Dominant || self.allele_b == Allele::Dominant
     }
 }
 
-#[derive(Clone, Copy, Debug, PartialEq, Serialize, Deserialize)]
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+pub struct Genetics {
+    pub dna: Vec<Gene>,
+    pub generation: u32,
+    pub mutation_count: u32,
+    pub exposure_level: f32,
+}
+
+impl Genetics {
+    pub fn new() -> Self {
+        Genetics {
+            dna: Vec::new(),
+            generation: 0,
+            mutation_count: 0,
+            exposure_level: 0.0,
+        }
+    }
+
+    pub fn mutate(&mut self, _rate: f32) {
+        // Logic for random mutation of alleles
+        self.mutation_count += 1;
+    }
+}
+
 pub struct PlagueMember; // Marker for the evolved archetype

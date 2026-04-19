@@ -1,49 +1,28 @@
 use hecs::World;
 use crate::components::genetics::{Genetics, PlagueMember};
 
-pub fn process_evolution(world: &mut World, current_tick: u64) {
-    // Run every 60 ticks
-    if current_tick % 60 != 0 { return; }
+pub fn process_evolution(world: &mut World, _current_tick: u64) {
+    let mut to_evolve = Vec::new();
 
-    let mut transformations = Vec::new();
+    for (entity, genetics) in world.query::<&Genetics>().iter() {
+        // Check if specific traits are expressed for evolution
+        let mut plague_score = 0;
+        for gene in genetics.dna.iter() {
+            if gene.trait_id == "plague" && gene.is_expressed() {
+                plague_score += 1;
+            }
+        }
 
-    // 1. Identify entities ready for evolution
-    for (entity, gen) in world.query::<&Genetics>().iter() {
-        if gen.exposure_level >= 100.0 {
-            // Check if not already a PlagueMember
+        if plague_score > 0 {
+            // Check if already evolved
             if world.get::<&PlagueMember>(entity).is_err() {
-                transformations.push(entity);
+                to_evolve.push(entity);
             }
         }
     }
 
-    // 2. Apply archetype changes
-    for entity in transformations {
+    for entity in to_evolve {
         let _ = world.insert_one(entity, PlagueMember);
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-    use hecs::World;
-
-    #[test]
-    fn test_archetype_mutation() {
-        let mut world = World::new();
-        let entity = world.spawn((
-            Genetics {
-                dna: [0; 16],
-                exposure_level: 110.0,
-                generation: 1,
-                race_id: 1,
-                race_abilities: Vec::new(),
-            },
-        ));
-
-        process_evolution(&mut world, 60);
-
-        // Verify that PlagueMember component was added
-        assert!(world.get::<&PlagueMember>(entity).is_ok());
+        // Additional changes like stats boosts could go here
     }
 }

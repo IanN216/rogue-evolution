@@ -90,13 +90,7 @@ mod tests {
         // Healthy entity at (10,10)
         let entity = world.spawn((
             Position { x: 10, y: 10 },
-            Genetics {
-                dna: [0; 16],
-                exposure_level: 0.0,
-                generation: 1,
-                race_id: 1,
-                race_abilities: Vec::new(),
-            }
+            Genetics::new()
         ));
 
         process_item_infection(&mut world);

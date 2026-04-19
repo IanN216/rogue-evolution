@@ -1,55 +1,58 @@
 #!/bin/bash
-# Agente Supervisor Rogue-Evolution v4 (Privilegios Totales)
-# Uso: exec ./master-build.sh docs/SPECS/Specs-8.1.md
+# Agente Supervisor Rogue-Evolution v5 (Mapeo de Referencias)
+# Uso: exec ./master-build.sh docs/SPECS/Specs-1.1.md
 
 SPEC_FILE=$1
 SUCCESS_KEYWORD="SISTEMA 100% OPERATIVO"
 
-# Función de cierre limpio
+# Mapeo de Spec -> Referencia Técnica (Ahorro de Tokens)
+case "$SPEC_FILE" in
+    *"Specs-1.1"*|*"Specs-1"*) REF="boundary-ca-maps.md" ;;
+    *"Specs-3"*)  REF="evolution-genetics.md" ;;
+    *"Specs-12"*) REF="dijkstra-navigation.md" ;;
+    *"Specs-8.1"*) REF="dual-layer-persistence.md" ;;
+    *) REF="map-blocking-integrity.md" ;; # Referencia por defecto
+esac
+
 limpiar_y_cerrar() {
-    echo -e "\n🛑 Interrupción detectada. Limpiando caché y cerrando shell..."
+    echo -e "\n🛑 Tarea terminada. Cerrando shell..."
     sleep 1
     kill -SIGHUP $PPID
     exit 0
 }
 
-# Capturamos Ctrl+C (SIGINT) y fallos del sistema
-trap limpiar_y_cerrar SIGINT SIGTERM
+trap limpiar_y_cerrar SIGINT
 
-if [ -z "$SPEC_FILE" ]; then
-    echo "❌ Error: Especifica un Spec."
-    exit 1
-fi
+if [ -z "$SPEC_FILE" ]; then echo "❌ Error: Especifica un Spec."; exit 1; fi
 
-echo "🚀 Iniciando construcción con Privilegios Totales en: $SPEC_FILE"
+echo "🚀 Construyendo: $SPEC_FILE"
+echo "📚 Referencia activa: $REF"
 
 for i in {1..5}
 do
-    echo "🔄 CICLO DE TRABAJO $i..."
-    
-    # 1. TRABAJO: --headless evita las preguntas de "Allow?"
+    echo "🔄 CICLO $i..."
+    # 1. TRABAJO HEADLESS
     gemini run "$SPEC_FILE" --checkpoint --headless
     
-    # 2. VALIDACIÓN TÉCNICA (Ahorra ciclos de CPU Celeron)
+    # 2. VALIDACIÓN TÉCNICA (Rápida en Celeron)
     if ! cargo check; then
-        echo "❌ Error de compilación. Enviando reporte detallado..."
-        gemini "Corrige los errores de Rust reportados por 'cargo check' en $SPEC_FILE." --checkpoint --headless
+        gemini "Error en 'cargo check'. Corrige la sintaxis en $SPEC_FILE." --checkpoint --headless
         continue
     fi
 
-    # 3. AUDITORÍA DE INTEGRIDAD (Spec-13)
-    echo "🔍 Auditando..."
-    REPORTE=$(gemini "Usa el skill system-auditor para validar $SPEC_FILE. Responde SOLO con '$SUCCESS_KEYWORD' o los archivos con placeholders/TODO." --checkpoint --headless)
+    # 3. AUDITORÍA CON CRUCE DE REFERENCIA
+    echo "🔍 Auditando integridad con $REF..."
+    # Aquí es donde ocurre la magia: forzamos a leer la referencia específica
+    REPORTE=$(gemini "Usa los skills 'system-auditor' y 'rogue-scholar'. Lee la referencia 'docs/SKILLS/reference/$REF' y valida si el código de $SPEC_FILE cumple con la teoría al 100%. Responde SOLO con '$SUCCESS_KEYWORD' o los fallos técnicos." --checkpoint --headless)
 
     if [[ "$REPORTE" == *"$SUCCESS_KEYWORD"* ]]; then
-        echo "✅ ÉXITO: Sistema validado al 100%."
+        echo "✅ ÉXITO: Sistema validado contra investigación de NotebookLM."
         limpiar_y_cerrar
     else
-        echo "⚠️ Hallazgos: $REPORTE"
-        # Instrucción agresiva para forzar la unión de las "blocked calls" en map.rs
-        gemini "Auditoría FALLIDA. Detecté placeholders en $REPORTE. Une las funciones de bloqueo en map.rs con el ECS y elimina el comentario 'Logic would go here' en main_menu.rs." --checkpoint --headless
+        echo "⚠️ Fallo Teórico: $REPORTE"
+        gemini "La implementación no cumple con la referencia $REF. Detalle: $REPORTE. Corrige el código y elimina esqueletos TODO." --checkpoint --headless
     fi
 done
 
-echo "🛑 Límite de intentos alcanzado."
+echo "🛑 Límite alcanzado."
 limpiar_y_cerrar

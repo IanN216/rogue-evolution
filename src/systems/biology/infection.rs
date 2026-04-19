@@ -1,44 +1,35 @@
-use hecs::{World, Entity};
+use hecs::World;
 use crate::components::stats::Position;
-use crate::components::genetics::Genetics;
-use std::collections::HashMap;
+use crate::components::items::{Blighted, InfectionSource};
+use bracket_lib::prelude::*;
 
-pub fn process_infection(world: &mut World, current_tick: u64) {
-    // Skip frames to save CPU (run every 30 ticks)
-    if current_tick % 30 != 0 { return; }
+pub fn process_infection(world: &mut World, _current_tick: u64) {
+    let mut to_infect = Vec::new();
 
-    let mut spatial_hash: HashMap<(i32, i32), Vec<Entity>> = HashMap::new();
-    
-    // 1. Populate spatial hash
-    for (entity, (pos, _)) in world.query::<(&Position, &Genetics)>().iter() {
-        let grid_pos = (pos.x / 2, pos.y / 2); // 2x2 grid cells
-        spatial_hash.entry(grid_pos).or_insert_with(Vec::new).push(entity);
+    // Find all infection sources
+    let mut sources = Vec::new();
+    for (entity, (pos, _)) in world.query::<(&Position, &InfectionSource)>().iter() {
+        sources.push((entity, pos.x, pos.y));
     }
 
-    // 2. Check proximity and infect within cells
-    // Using a simple logic: if an infected (high exposure) is near others, they share traits
-    let mut mutations = Vec::new();
+    // Find potential targets near sources
+    for (_entity, (pos, _)) in world.query::<(&Position, &Position)>().iter() { // Simplified query
+        for (_src_entity, sx, sy) in sources.iter() {
+            let dist = DistanceAlg::Pythagoras.distance2d(
+                Point::new(pos.x, pos.y),
+                Point::new(*sx, *sy)
+            );
 
-    for (_, entities) in spatial_hash.iter() {
-        if entities.len() < 2 { continue; }
-
-        for &e1 in entities {
-            if let Ok(gen_a) = world.get::<&Genetics>(e1) {
-                if gen_a.exposure_level > 50.0 {
-                    // Entity e1 is a "carrier", potentially infects others in the same cell
-                    for &e2 in entities {
-                        if e1 == e2 { continue; }
-                        mutations.push((e2, 1.0f32)); // Increase exposure of e2
-                    }
-                }
+            if dist < 2.0 { // Proximity threshold
+                to_infect.push(_entity);
             }
         }
     }
 
-    // 3. Apply results
-    for (entity, increase) in mutations {
-        if let Ok(mut genetics) = world.get::<&mut Genetics>(entity) {
-            genetics.exposure_level += increase;
+    // Apply infection (Blighted marker)
+    for entity in to_infect {
+        if world.get::<&Blighted>(entity).is_err() {
+            let _ = world.insert_one(entity, Blighted);
         }
     }
 }
