@@ -4,15 +4,16 @@ pub mod ingame;
 pub mod laboratory;
 pub mod map_inspector;
 
-#[derive(PartialEq, Copy, Clone, Debug)]
+#[derive(PartialEq, Clone, Debug)]
 pub enum MainMenuSelection {
     NewGame,
-    LoadGame { selection: usize },
+    LoadGame { selection: usize, cached_saves: Vec<String> },
+    ConfirmDelete { selection: usize, cached_saves: Vec<String> },
     Laboratory,
     Quit,
 }
 
-#[derive(PartialEq, Copy, Clone)]
+#[derive(PartialEq, Clone)]
 pub enum RunState {
     MainMenu { selection: MainMenuSelection },
     CharacterCreation,

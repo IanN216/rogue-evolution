@@ -32,7 +32,7 @@ impl GameState for State {
             }
             RunState::MapGen => states::map_gen_screen::tick(ctx, &mut self.world_manager),
             RunState::InGame | RunState::PlayerTurn | RunState::MonsterTurn => {
-                states::ingame::tick(ctx, &mut self.world_manager, &mut self.time_state, self.run_state)
+                states::ingame::tick(ctx, &mut self.world_manager, &mut self.time_state, self.run_state.clone())
             }
 
             RunState::Laboratory => states::laboratory::tick(ctx, &mut self.world_manager),

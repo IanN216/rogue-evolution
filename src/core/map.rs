@@ -1,5 +1,7 @@
 use bracket_lib::prelude::*;
 use serde::{Deserialize, Serialize};
+use hecs::World;
+use crate::components::stats::{Position, BlocksTile};
 
 #[derive(PartialEq, Copy, Clone, Serialize, Deserialize, Debug)]
 pub enum TileType {
@@ -39,15 +41,21 @@ impl Map {
         !self.blocked[idx]
     }
 
+    /// Sincroniza el vector blocked basándose únicamente en los muros.
     pub fn populate_blocked(&mut self) {
         for (i, tile) in self.tiles.iter().enumerate() {
             self.blocked[i] = *tile == TileType::Wall;
         }
     }
 
-    pub fn clear_content_index(&mut self) {
-        for (i, _tile) in self.tiles.iter().enumerate() {
-            self.blocked[i] = self.tiles[i] == TileType::Wall;
+    /// Limpia el vector blocked con los muros y luego bloquea tiles con entidades (DOD).
+    pub fn update_blocked_from_ecs(&mut self, world: &World) {
+        self.populate_blocked();
+        for (_entity, (pos, _)) in world.query::<(&Position, &BlocksTile)>().iter() {
+            let idx = self.xy_idx(pos.x, pos.y);
+            if idx < self.blocked.len() {
+                self.blocked[idx] = true;
+            }
         }
     }
 }

@@ -43,6 +43,9 @@ pub struct WantsToMove {
 pub struct InCombat;
 
 #[derive(Clone, Copy, Debug, PartialEq, Serialize, Deserialize)]
+pub struct BlocksTile;
+
+#[derive(Clone, Copy, Debug, PartialEq, Serialize, Deserialize)]
 pub struct Metabolism {
     pub hunger: f32,
     pub max_hunger: f32,
