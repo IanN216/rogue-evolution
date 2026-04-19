@@ -3,6 +3,7 @@ pub mod map_gen_screen;
 pub mod ingame;
 pub mod laboratory;
 pub mod map_inspector;
+pub mod options;
 
 #[derive(PartialEq, Clone, Debug)]
 pub enum MainMenuSelection {
@@ -10,6 +11,7 @@ pub enum MainMenuSelection {
     LoadGame { selection: usize, cached_saves: Vec<String> },
     ConfirmDelete { selection: usize, cached_saves: Vec<String> },
     Laboratory,
+    Options,
     Quit,
 }
 
@@ -23,4 +25,5 @@ pub enum RunState {
     MonsterTurn,
     Laboratory,
     MapInspector { zoom: f32, cursor: (i32, i32) },
+    Options { selection: usize },
 }

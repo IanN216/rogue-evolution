@@ -17,10 +17,7 @@ pub fn tick(ctx: &mut BTerm, world_manager: &mut WorldManager, selection: MainMe
 
     match selection {
         MainMenuSelection::NewGame => {
-            draw_menu_item(ctx, 15, "New Game", true);
-            draw_menu_item(ctx, 16, "Load Game", false);
-            draw_menu_item(ctx, 17, "Laboratory", false);
-            draw_menu_item(ctx, 18, "Quit", false);
+            draw_main_menu_items(ctx, 0);
 
             if let Some(key) = ctx.key {
                 match key {
@@ -42,10 +39,7 @@ pub fn tick(ctx: &mut BTerm, world_manager: &mut WorldManager, selection: MainMe
             }
         }
         MainMenuSelection::LoadGame { selection: idx, cached_saves: saves } => {
-            draw_menu_item(ctx, 15, "New Game", false);
-            draw_menu_item(ctx, 16, "Load Game", true);
-            draw_menu_item(ctx, 17, "Laboratory", false);
-            draw_menu_item(ctx, 18, "Quit", false);
+            draw_main_menu_items(ctx, 1);
 
             // Draw save list
             let mut y = 22;
@@ -155,10 +149,7 @@ pub fn tick(ctx: &mut BTerm, world_manager: &mut WorldManager, selection: MainMe
             }
         }
         MainMenuSelection::Laboratory => {
-            draw_menu_item(ctx, 15, "New Game", false);
-            draw_menu_item(ctx, 16, "Load Game", false);
-            draw_menu_item(ctx, 17, "Laboratory", true);
-            draw_menu_item(ctx, 18, "Quit", false);
+            draw_main_menu_items(ctx, 2);
 
             if let Some(key) = ctx.key {
                 match key {
@@ -168,21 +159,30 @@ pub fn tick(ctx: &mut BTerm, world_manager: &mut WorldManager, selection: MainMe
                             selection: MainMenuSelection::LoadGame { selection: 0, cached_saves: saves } 
                         });
                     }
-                    VirtualKeyCode::Down => return Some(RunState::MainMenu { selection: MainMenuSelection::Quit }),
+                    VirtualKeyCode::Down => return Some(RunState::MainMenu { selection: MainMenuSelection::Options }),
                     VirtualKeyCode::Return => return Some(RunState::Laboratory),
                     _ => {}
                 }
             }
         }
-        MainMenuSelection::Quit => {
-            draw_menu_item(ctx, 15, "New Game", false);
-            draw_menu_item(ctx, 16, "Load Game", false);
-            draw_menu_item(ctx, 17, "Laboratory", false);
-            draw_menu_item(ctx, 18, "Quit", true);
+        MainMenuSelection::Options => {
+            draw_main_menu_items(ctx, 3);
 
             if let Some(key) = ctx.key {
                 match key {
                     VirtualKeyCode::Up => return Some(RunState::MainMenu { selection: MainMenuSelection::Laboratory }),
+                    VirtualKeyCode::Down => return Some(RunState::MainMenu { selection: MainMenuSelection::Quit }),
+                    VirtualKeyCode::Return => return Some(RunState::Options { selection: 0 }),
+                    _ => {}
+                }
+            }
+        }
+        MainMenuSelection::Quit => {
+            draw_main_menu_items(ctx, 4);
+
+            if let Some(key) = ctx.key {
+                match key {
+                    VirtualKeyCode::Up => return Some(RunState::MainMenu { selection: MainMenuSelection::Options }),
                     VirtualKeyCode::Return => std::process::exit(0),
                     _ => {}
                 }
@@ -191,6 +191,13 @@ pub fn tick(ctx: &mut BTerm, world_manager: &mut WorldManager, selection: MainMe
     }
 
     None
+}
+
+fn draw_main_menu_items(ctx: &mut BTerm, selected_idx: usize) {
+    let items = ["New Game", "Load Game", "Laboratory", "Options", "Quit"];
+    for (i, item) in items.iter().enumerate() {
+        draw_menu_item(ctx, 15 + i as i32, item, i == selected_idx);
+    }
 }
 
 fn draw_menu_item(ctx: &mut BTerm, y: i32, text: &str, selected: bool) {

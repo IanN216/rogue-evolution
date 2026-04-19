@@ -8,6 +8,7 @@ use bracket_lib::prelude::*;
 use states::RunState;
 use crate::core::world::WorldManager;
 use crate::core::chronometry::TimeState;
+use crate::utils::config::Settings;
 
 pub trait FullscreenToggle {
     fn with_fullscreen(&mut self, fullscreen: bool);
@@ -49,7 +50,7 @@ impl GameState for State {
             RunState::CharacterCreation => {
                 ctx.set_active_console(1);
                 ctx.cls();
-                ctx.print_centered(25, "Character Creation - Not yet implemented");
+                ctx.print_centered(25, "Character Creation");
                 ctx.print_centered(27, "Press [M] to return to Main Menu");
                 if let Some(VirtualKeyCode::M) = ctx.key {
                     Some(RunState::MainMenu { selection: states::MainMenuSelection::NewGame })
@@ -64,6 +65,7 @@ impl GameState for State {
 
             RunState::Laboratory => states::laboratory::tick(ctx, &mut self.world_manager),
             RunState::MapInspector { zoom, cursor } => states::map_inspector::tick(ctx, &mut self.world_manager, *zoom, *cursor),
+            RunState::Options { selection } => states::options::tick(ctx, *selection),
         };
 
         if let Some(new_state) = new_runstate {
@@ -73,23 +75,26 @@ impl GameState for State {
 }
 
 fn main() -> BError {
+    let settings = Settings::load();
+    let (width, height) = settings.get_dimensions();
+
     let context = BTermBuilder::new()
         .with_title("Rogue-Evolution")
-        .with_dimensions(80, 50)
+        .with_dimensions(width, height)
         .with_tile_dimensions(8, 16)
         .with_font("vga8x16.png", 8, 16)
-        .with_fullscreen(true)
-        .with_advanced_input(true) // Requerido por Spec-15 para escalado dinámico
-        .with_fps_cap(60.0)        // Mantener frío el Celeron (Spec-15)
-        .with_simple_console(80, 50, "vga8x16.png")
-        .with_simple_console_no_bg(80, 50, "vga8x16.png")
+        .with_fullscreen(settings.fullscreen)
+        .with_advanced_input(true)
+        .with_fps_cap(60.0)
+        .with_simple_console(width, height, "vga8x16.png")
+        .with_simple_console_no_bg(width, height, "vga8x16.png")
         .build()?;
 
     let gs = State {
         run_state: RunState::MainMenu { selection: states::MainMenuSelection::NewGame },
         world_manager: WorldManager::new(),
         time_state: TimeState::new(),
-        fullscreen: true,
+        fullscreen: settings.fullscreen,
     };
     main_loop(context, gs)
 }
