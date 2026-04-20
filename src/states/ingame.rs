@@ -125,6 +125,8 @@ fn render(ctx: &mut BTerm, world_manager: &mut WorldManager, player_pos: Positio
                     if let Some(tile) = world_manager.world_map.map.tiles.get(idx) {
                         let (glyph, fg) = match tile {
                             TileType::Floor => (to_cp437('.'), RGB::named(DARK_GRAY)),
+                            TileType::StonyFloor => (to_cp437('.'), RGB::named(GRAY)),
+                            TileType::MuddyFloor => (to_cp437('~'), RGB::named(CHOCOLATE)),
                             TileType::Wall => (to_cp437('#'), RGB::named(GREEN)),
                         };
                         ctx.set(x, y, fg, RGB::named(BLACK), glyph);

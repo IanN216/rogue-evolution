@@ -35,11 +35,13 @@ pub fn tick(ctx: &mut BTerm, world_manager: &mut WorldManager, zoom: f32, cursor
                 let tile = map.tiles[idx];
                 let mut color = match tile {
                     TileType::Floor => RGB::named(GRAY),
+                    TileType::StonyFloor => RGB::named(LIGHT_GRAY),
+                    TileType::MuddyFloor => RGB::named(CHOCOLATE),
                     TileType::Wall => RGB::named(WHITE),
                 };
 
                 // Diagnostics
-                if tile == TileType::Floor && is_isolated(map, map_x, map_y) {
+                if tile != TileType::Wall && is_isolated(map, map_x, map_y) {
                     color = RGB::named(RED);
                 } else if tile == TileType::Wall && is_thin_wall(map, map_x, map_y) {
                     color = RGB::named(YELLOW);
@@ -50,7 +52,8 @@ pub fn tick(ctx: &mut BTerm, world_manager: &mut WorldManager, zoom: f32, cursor
                 }
 
                 ctx.set(x, y, color, RGB::named(BLACK), to_cp437(match tile {
-                    TileType::Floor => '.',
+                    TileType::Floor | TileType::StonyFloor => '.',
+                    TileType::MuddyFloor => '~',
                     TileType::Wall => '#',
                 }));
             }
@@ -90,7 +93,7 @@ fn is_isolated(map: &Map, x: i32, y: i32) -> bool {
             let nx = x + ix;
             let ny = y + iy;
             if nx >= 0 && nx < map.width && ny >= 0 && ny < map.height {
-                if map.tiles[map.xy_idx(nx, ny)] == TileType::Floor { neighbors += 1; }
+                if map.tiles[map.xy_idx(nx, ny)] != TileType::Wall { neighbors += 1; }
             }
         }
     }
@@ -106,7 +109,7 @@ fn is_thin_wall(map: &Map, x: i32, y: i32) -> bool {
             let nx = x + ix;
             let ny = y + iy;
             if nx >= 0 && nx < map.width && ny >= 0 && ny < map.height {
-                if map.tiles[map.xy_idx(nx, ny)] == TileType::Floor { floor_count += 1; }
+                if map.tiles[map.xy_idx(nx, ny)] != TileType::Wall { floor_count += 1; }
             }
         }
     }

@@ -7,6 +7,8 @@ use crate::components::stats::{Position, BlocksTile};
 pub enum TileType {
     Wall,
     Floor,
+    StonyFloor,
+    MuddyFloor,
 }
 
 pub struct Map {
@@ -16,6 +18,7 @@ pub struct Map {
     pub revealed_tiles: Vec<bool>,
     pub visible_tiles: Vec<bool>,
     pub blocked: Vec<bool>,
+    pub interest_points: Vec<usize>,
 }
 
 impl Map {
@@ -32,6 +35,7 @@ impl Map {
             revealed_tiles: vec![false; map_tile_count],
             visible_tiles: vec![false; map_tile_count],
             blocked: vec![false; map_tile_count],
+            interest_points: Vec::new(),
         }
     }
 

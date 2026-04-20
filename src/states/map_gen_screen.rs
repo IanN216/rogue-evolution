@@ -5,6 +5,7 @@ use crate::core::map_gen::{generate_caverns_step, drunkard_walk_step, add_region
 use crate::components::stats::{Position, Renderable, Viewshed, BaseStats};
 use crate::components::identity::Identity;
 use crate::components::progression::Experience;
+use crate::components::items::{InfectionSource, Blighted};
 
 pub fn tick(ctx: &mut BTerm, wm: &mut WorldManager, phase: usize, progress: f32, phase_step: usize) -> Option<RunState> {
     // 1. Limpieza de Búfer Triple
@@ -77,6 +78,7 @@ pub fn tick(ctx: &mut BTerm, wm: &mut WorldManager, phase: usize, progress: f32,
         }
         3 => {
             spawn_player(wm, sw as i32, sh as i32);
+            spawn_pois(wm);
             return Some(RunState::MapGen { phase: 4, progress: 1.0, phase_step: 0 });
         }
         4 => {
@@ -107,6 +109,23 @@ fn spawn_player(wm: &mut WorldManager, width: i32, height: i32) {
             Identity { name: "Hero".to_string(), title: None, kingdom_id: 0 },
             BaseStats { hp: 100, max_hp: 100, attack: 10, defense: 5 },
             Experience::new(),
+        ));
+    }
+}
+
+fn spawn_pois(wm: &mut WorldManager) {
+    let map = &wm.world_map.map;
+    for &idx in map.interest_points.iter() {
+        let x = idx as i32 % map.width;
+        let y = idx as i32 / map.width;
+
+        // Colocar un Laboratorio o Fuente de Infección
+        wm.world.spawn((
+            Position { x, y },
+            Renderable { glyph: to_cp437('L'), fg: RGB::named(CYAN), bg: RGB::named(BLACK) },
+            Identity { name: "Bio-Laboratory".to_string(), title: Some("Ancient".to_string()), kingdom_id: 0 },
+            InfectionSource,
+            Blighted,
         ));
     }
 }
