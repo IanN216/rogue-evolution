@@ -21,11 +21,20 @@ pub fn tick(ctx: &mut BTerm, world_manager: &mut WorldManager, time_state: &mut 
     }
 
     // 1. Renderizado con Cámara Dinámica
+    ctx.set_active_console(2); // Limpieza de capa UI para evitar ghosting
+    ctx.cls();
     render(ctx, world_manager, player_pos, &player_viewshed);
 
     // 2. Lógica según el estado de turno
     match current_state {
         RunState::InGame => {
+            // Procesar FOV inicial o si está sucio para evitar pantalla negra al empezar
+            if let Some(vs) = &player_viewshed {
+                if vs.dirty {
+                    process_fov(&mut world_manager.world, &world_manager.world_map.map, time_state);
+                }
+            }
+
             if let Some(key) = ctx.key {
                 match key {
                     VirtualKeyCode::Left | VirtualKeyCode::H | VirtualKeyCode::Numpad4 => return try_move_player(-1, 0, world_manager),
@@ -45,6 +54,10 @@ pub fn tick(ctx: &mut BTerm, world_manager: &mut WorldManager, time_state: &mut 
         }
         RunState::MonsterTurn => {
             time_state.update();
+            
+            // Procesar Streaming de Regiones (Spec-5: Parasangas)
+            world_manager.stream_regions(player_pos);
+
             process_swarm_ai(&mut world_manager.world, &world_manager.world_map.map);
             
             // Sistemas Biológicos (Celeron Optimized)

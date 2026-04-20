@@ -23,7 +23,7 @@ pub fn tick(ctx: &mut BTerm, wm: &mut WorldManager, selection: usize) -> Option<
     draw_batch.cls();
 
     let center_x = LOGICAL_WIDTH / 2;
-    let center_y = LOGICAL_HEIGHT / 2;
+    let center_y = LOGICAL_HEIGHT / 3; // Subimos el anclaje al tercio superior
 
     draw_batch.target(2); // UI Layer
     let bw = 40;

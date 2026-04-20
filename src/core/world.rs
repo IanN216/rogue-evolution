@@ -30,12 +30,8 @@ impl WorldManager {
 
     /// Sistema de movimiento masivo optimizado para Celeron (Zero-Allocation)
     pub fn update_movement(&mut self) {
-        // En lugar de collect(), iteramos directamente. 
-        // Nota: Si se requiere Rayon, se debe usar un enfoque que no colisione con el borrow checker de hecs.
-        // Para este nivel de optimización, usamos el iterador interno de hecs que es muy eficiente.
-        for (_entity, (pos, _stats)) in self.world.query_mut::<(&mut Position, &BaseStats)>() {
-            pos.x += 1;
-        }
+        // Reservado para lógica de movimiento masivo (Boids/Swarm)
+        // Eliminado pos.x += 1 por ser destructivo para la simulación.
     }
 
     /// Implementa el Spec-5: Streaming de chunks (Parasangas) - Optimizado para Celeron
@@ -92,7 +88,13 @@ impl WorldManager {
         }
 
         for ((rx, ry), entities) in snapshots_by_region {
-            save_region_async(RegionData { x: rx, y: ry, tiles: Vec::new(), entities });
+            // FIX: Guardar teselas actuales para evitar vacíos al recargar
+            save_region_async(RegionData { 
+                x: rx, 
+                y: ry, 
+                tiles: self.world_map.map.tiles.clone(), 
+                entities 
+            });
             self.world_map.loaded_regions.remove(&(rx, ry));
         }
 

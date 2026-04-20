@@ -36,7 +36,7 @@ impl Map {
     }
 
     pub fn is_exit_valid(&self, x: i32, y: i32) -> bool {
-        if x < 1 || x > self.width - 1 || y < 1 || y > self.height - 1 { return false; }
+        if x < 0 || x >= self.width || y < 0 || y >= self.height { return false; }
         let idx = self.xy_idx(x, y);
         !self.blocked[idx]
     }
@@ -44,6 +44,13 @@ impl Map {
     /// Actualiza toda la metadata del mapa (muros y entidades bloqueantes) en un solo ciclo de vida.
     /// Esto elimina la redundancia y optimiza el uso del caché L1/L2 del Celeron.
     pub fn update_map_metadata(&mut self, world: Option<&World>) {
+        let count = self.tiles.len();
+        
+        // Sincronización robusta de dimensiones para evitar pánicos tras carga de regiones
+        if self.blocked.len() != count { self.blocked.resize(count, false); }
+        if self.revealed_tiles.len() != count { self.revealed_tiles.resize(count, false); }
+        if self.visible_tiles.len() != count { self.visible_tiles.resize(count, false); }
+
         // Fase 1: Sincronizar bloqueos basados en la topología estática (muros)
         for (i, tile) in self.tiles.iter().enumerate() {
             self.blocked[i] = *tile == TileType::Wall;
