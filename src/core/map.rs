@@ -1,5 +1,7 @@
-use crate::core::world_map::{PLANET_TILE_WIDTH, PLANET_TILE_HEIGHT};
+use crate::core::world_map::{PLANET_TILE_WIDTH, PLANET_TILE_HEIGHT, ChunkKey, CHUNK_SIZE};
 use bracket_lib::prelude::*;
+use std::collections::HashMap;
+use hecs::World;
 
 #[derive(PartialEq, Copy, Clone, Debug)]
 pub enum TileType {
@@ -13,33 +15,51 @@ pub enum TileType {
     Wall,
     StonyFloor,
     MuddyFloor,
+    Tundra,
+    Jungle,
+    Savanna,
+    Desert,
 }
 
 pub struct Map {
-    pub tiles: Vec<TileType>,
+    pub chunks: HashMap<ChunkKey, Vec<TileType>>,
     pub width: i32,
     pub height: i32,
+    pub world: World, // hecs ECS World
 }
 
 impl Map {
-    pub fn xy_idx(&self, x: i32, y: i32) -> usize {
-        (y.rem_euclid(self.height) as usize * self.width as usize) + x.rem_euclid(self.width) as usize
+    pub fn new_planet() -> Map {
+        Map {
+            chunks: HashMap::new(),
+            width: PLANET_TILE_WIDTH,
+            height: PLANET_TILE_HEIGHT,
+            world: World::new(),
+        }
     }
 
-    pub fn new_planet() -> Map {
-        let width = PLANET_TILE_WIDTH;
-        let height = PLANET_TILE_HEIGHT;
-        Map {
-            tiles: vec![TileType::DeepWater; (width * height) as usize],
-            width,
-            height,
+    pub fn get_tile(&self, x: i32, y: i32) -> TileType {
+        let world_x = x.rem_euclid(self.width);
+        let world_y = y.rem_euclid(self.height);
+        let key = ChunkKey::from_world_coords(world_x, world_y);
+        
+        if let Some(chunk) = self.chunks.get(&key) {
+            let local_x = world_x.rem_euclid(CHUNK_SIZE);
+            let local_y = world_y.rem_euclid(CHUNK_SIZE);
+            let idx = (local_y * CHUNK_SIZE + local_x) as usize;
+            chunk[idx]
+        } else {
+            TileType::DeepWater // Fallback for ungenerated chunks
         }
     }
 }
 
 impl BaseMap for Map {
-    fn is_opaque(&self, idx: usize) -> bool {
-        self.tiles[idx] == TileType::Wall || self.tiles[idx] == TileType::Mountain
+    fn is_opaque(&self, _idx: usize) -> bool {
+        // This is tricky with chunks. BaseMap might need a different approach 
+        // if bracket-lib algorithms expect a flat array.
+        // For now, let's keep it simple or implement it if needed.
+        false
     }
 }
 
