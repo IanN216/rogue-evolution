@@ -23,7 +23,7 @@ pub struct Map {
 
 impl Map {
     pub fn xy_idx(&self, x: i32, y: i32) -> usize {
-        (y as usize * self.width as usize) + x as usize
+        (y.rem_euclid(self.height) as usize * self.width as usize) + x.rem_euclid(self.width) as usize
     }
 
     pub fn new(width: i32, height: i32) -> Map {
@@ -40,7 +40,6 @@ impl Map {
     }
 
     pub fn is_exit_valid(&self, x: i32, y: i32) -> bool {
-        if x < 0 || x >= self.width || y < 0 || y >= self.height { return false; }
         let idx = self.xy_idx(x, y);
         !self.blocked[idx]
     }
@@ -64,9 +63,7 @@ impl Map {
         if let Some(world) = world {
             for (_entity, (pos, _)) in world.query::<(&Position, &BlocksTile)>().iter() {
                 let idx = self.xy_idx(pos.x, pos.y);
-                if idx < self.blocked.len() {
-                    self.blocked[idx] = true;
-                }
+                self.blocked[idx] = true;
             }
         }
     }
@@ -87,21 +84,33 @@ impl BaseMap for Map {
         let mut exits = SmallVec::new();
         let x = idx as i32 % self.width;
         let y = idx as i32 / self.width;
-        let w = self.width as usize;
 
-        // Cardinal directions
-        if self.is_exit_valid(x - 1, y) { exits.push((idx - 1, 1.0)) };
-        if self.is_exit_valid(x + 1, y) { exits.push((idx + 1, 1.0)) };
-        if self.is_exit_valid(x, y - 1) { exits.push((idx - w, 1.0)) };
-        if self.is_exit_valid(x, y + 1) { exits.push((idx + w, 1.0)) };
+        // Cardinal directions con wrap-around
+        let neighbors = [
+            (x - 1, y), (x + 1, y), (x, y - 1), (x, y + 1)
+        ];
+
+        for (nx, ny) in neighbors {
+            if self.is_exit_valid(nx, ny) {
+                exits.push((self.xy_idx(nx, ny), 1.0));
+            }
+        }
 
         exits
     }
 
     fn get_pathing_distance(&self, idx1: usize, idx2: usize) -> f32 {
-        let w = self.width as usize;
-        let p1 = Point::new(idx1 % w, idx1 / w);
-        let p2 = Point::new(idx2 % w, idx2 / w);
-        DistanceAlg::Pythagoras.distance2d(p1, p2)
+        let x1 = (idx1 as i32 % self.width) as f32;
+        let y1 = (idx1 as i32 / self.width) as f32;
+        let x2 = (idx2 as i32 % self.width) as f32;
+        let y2 = (idx2 as i32 / self.width) as f32;
+
+        let dx = (x1 - x2).abs();
+        let dy = (y1 - y2).abs();
+
+        let dx = dx.min(self.width as f32 - dx);
+        let dy = dy.min(self.height as f32 - dy);
+
+        (dx * dx + dy * dy).sqrt()
     }
 }

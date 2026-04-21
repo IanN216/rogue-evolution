@@ -6,7 +6,7 @@ use crate::components::identity::Identity;
 use crate::components::kingdom::KingdomMember;
 use crate::components::progression::{Experience, AbilityRegistry, Humanoid};
 use crate::components::items::{Item, Weapon, Blighted, InfectionSource};
-use crate::core::world_map::{WorldMap, RegionData, EntitySnapshot, PARASANGA_SIZE};
+use crate::core::world_map::{WorldMap, RegionData, EntitySnapshot, PARASANGA_SIZE, WORLD_WIDTH_REGIONS, WORLD_HEIGHT_REGIONS};
 use crate::utils::persistence::{save_region_async, load_region};
 
 pub struct WorldManager {
@@ -37,8 +37,10 @@ impl WorldManager {
     /// Implementa el Spec-5: Streaming de chunks (Parasangas) - Optimizado para Celeron
     pub fn stream_regions(&mut self, player_pos: Position) {
         let (px, py) = (player_pos.x / PARASANGA_SIZE, player_pos.y / PARASANGA_SIZE);
+        let px_wrapped = px.rem_euclid(WORLD_WIDTH_REGIONS);
+        let py_wrapped = py.rem_euclid(WORLD_HEIGHT_REGIONS);
         
-        self.world_map.loaded_regions.insert((px, py));
+        self.world_map.loaded_regions.insert((px_wrapped, py_wrapped));
 
         let mut entities_to_remove = Vec::new();
         let mut snapshots_by_region: std::collections::HashMap<(i32, i32), Vec<EntitySnapshot>> = std::collections::HashMap::new();
@@ -62,12 +64,20 @@ impl WorldManager {
             Option<&InfectionSource>
         )>() {
             let (rx, ry) = (pos.x / PARASANGA_SIZE, pos.y / PARASANGA_SIZE);
-            let dist = ((rx - px).pow(2) + (ry - py).pow(2)) as f32;
+            let rx_wrapped = rx.rem_euclid(WORLD_WIDTH_REGIONS);
+            let ry_wrapped = ry.rem_euclid(WORLD_HEIGHT_REGIONS);
             
-            if dist > 4.0 { 
+            // Distancia toroidal para el streaming
+            let dx = (rx - px).abs();
+            let dy = (ry - py).abs();
+            let dx = dx.min(WORLD_WIDTH_REGIONS - dx);
+            let dy = dy.min(WORLD_HEIGHT_REGIONS - dy);
+            let dist_sq = dx * dx + dy * dy;
+            
+            if dist_sq > 4 { 
                 entities_to_remove.push(entity);
                 
-                snapshots_by_region.entry((rx, ry)).or_insert(Vec::new()).push(EntitySnapshot {
+                snapshots_by_region.entry((rx_wrapped, ry_wrapped)).or_insert(Vec::new()).push(EntitySnapshot {
                     position: *pos,
                     renderable: render.cloned(),
                     base_stats: stats.cloned(),
@@ -105,34 +115,36 @@ impl WorldManager {
         // Carga de regiones optimizada: Spawn agrupado para evitar archetype migration masivo
         for dx in -2..=2 {
             for dy in -2..=2 {
-                let rx = px + dx;
-                let ry = py + dy;
-                if (dx*dx + dy*dy) <= 4 && !self.world_map.loaded_regions.contains(&(rx, ry)) {
-                    if let Ok(region) = load_region(rx, ry) {
-                        for snp in region.entities {
-                            // Usamos una tupla de componentes comunes para que nazca en un arquetipo estable.
-                            // Esto es mucho más rápido para el caché del Celeron.
-                            let e = self.world.spawn((
-                                snp.position,
-                                snp.renderable.unwrap_or(Renderable { glyph: to_cp437('?'), fg: RGB::named(RED), bg: RGB::named(BLACK) }),
-                                snp.base_stats.unwrap_or(BaseStats { hp: 1, max_hp: 1, attack: 0, defense: 0 }),
-                                snp.identity.unwrap_or(Identity { name: "Unknown".to_string(), title: None, kingdom_id: 0 }),
-                            ));
+                if (dx*dx + dy*dy) <= 4 {
+                    let rx = (px + dx).rem_euclid(WORLD_WIDTH_REGIONS);
+                    let ry = (py + dy).rem_euclid(WORLD_HEIGHT_REGIONS);
+                    
+                    if !self.world_map.loaded_regions.contains(&(rx, ry)) {
+                        if let Ok(region) = load_region(rx, ry) {
+                            for snp in region.entities {
+                                // Usamos una tupla de componentes comunes para que nazca en un arquetipo estable.
+                                let e = self.world.spawn((
+                                    snp.position,
+                                    snp.renderable.unwrap_or(Renderable { glyph: to_cp437('?'), fg: RGB::named(RED), bg: RGB::named(BLACK) }),
+                                    snp.base_stats.unwrap_or(BaseStats { hp: 1, max_hp: 1, attack: 0, defense: 0 }),
+                                    snp.identity.unwrap_or(Identity { name: "Unknown".to_string(), title: None, kingdom_id: 0 }),
+                                ));
 
-                            // Solo usamos insert_one para componentes variables o de menor frecuencia
-                            if let Some(c) = snp.viewshed { self.world.insert_one(e, c).unwrap(); }
-                            if let Some(c) = snp.genetics { self.world.insert_one(e, c).unwrap(); }
-                            if let Some(c) = snp.kingdom_member { self.world.insert_one(e, c).unwrap(); }
-                            if let Some(c) = snp.metabolism { self.world.insert_one(e, c).unwrap(); }
-                            if let Some(c) = snp.experience { self.world.insert_one(e, c).unwrap(); }
-                            if let Some(c) = snp.abilities { self.world.insert_one(e, c).unwrap(); }
-                            if snp.is_humanoid { self.world.insert_one(e, Humanoid).unwrap(); }
-                            if let Some(c) = snp.item { self.world.insert_one(e, c).unwrap(); }
-                            if let Some(c) = snp.weapon { self.world.insert_one(e, c).unwrap(); }
-                            if snp.is_blighted { self.world.insert_one(e, Blighted).unwrap(); }
-                            if snp.is_infection_source { self.world.insert_one(e, InfectionSource).unwrap(); }
+                                // Solo usamos insert_one para componentes variables o de menor frecuencia
+                                if let Some(c) = snp.viewshed { self.world.insert_one(e, c).unwrap(); }
+                                if let Some(c) = snp.genetics { self.world.insert_one(e, c).unwrap(); }
+                                if let Some(c) = snp.kingdom_member { self.world.insert_one(e, c).unwrap(); }
+                                if let Some(c) = snp.metabolism { self.world.insert_one(e, c).unwrap(); }
+                                if let Some(c) = snp.experience { self.world.insert_one(e, c).unwrap(); }
+                                if let Some(c) = snp.abilities { self.world.insert_one(e, c).unwrap(); }
+                                if snp.is_humanoid { self.world.insert_one(e, Humanoid).unwrap(); }
+                                if let Some(c) = snp.item { self.world.insert_one(e, c).unwrap(); }
+                                if let Some(c) = snp.weapon { self.world.insert_one(e, c).unwrap(); }
+                                if snp.is_blighted { self.world.insert_one(e, Blighted).unwrap(); }
+                                if snp.is_infection_source { self.world.insert_one(e, InfectionSource).unwrap(); }
+                            }
+                            self.world_map.loaded_regions.insert((rx, ry));
                         }
-                        self.world_map.loaded_regions.insert((rx, ry));
                     }
                 }
             }

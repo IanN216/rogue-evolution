@@ -7,6 +7,8 @@ use crate::components::kingdom::KingdomMember;
 use std::collections::{HashMap, HashSet};
 
 pub const PARASANGA_SIZE: i32 = 64;
+pub const WORLD_WIDTH_REGIONS: i32 = 8;
+pub const WORLD_HEIGHT_REGIONS: i32 = 8;
 
 use crate::components::progression::{Experience, AbilityRegistry};
 use crate::components::items::{Item, Weapon};

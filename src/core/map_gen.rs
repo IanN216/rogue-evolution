@@ -44,18 +44,7 @@ pub fn generate_caverns_step(map: &mut Map, iteration: usize, seed: u64) -> f32 
         let x = idx as i32 % width;
         let y = idx as i32 / width;
         
-        // Border Blending: Simulado mediante ruido determinista en bordes
-        if x == 0 || x == width - 1 || y == 0 || y == height - 1 {
-            let border_noise = Simplex::new(seed as u32 + (x + y) as u32);
-            if border_noise.get([x as f64, y as f64]) > 0.0 {
-                *tile = TileType::Wall;
-            } else {
-                *tile = TileType::Floor;
-            }
-            return;
-        }
-
-        let neighbors = count_neighbors_static(&map.tiles, width, x, y);
+        let neighbors = count_neighbors_static(&map.tiles, width, height, x, y);
         if neighbors >= 4 && neighbors <= 6 {
             *tile = TileType::Wall;
         } else {
@@ -80,8 +69,8 @@ pub fn drunkard_walk_step(map: &mut Map, step: usize, seed: u64) -> f32 {
     let mut floor_count = map.tiles.iter().filter(|&&t| t != TileType::Wall).count();
 
     if (floor_count as f32) < target_floor {
-        let mut drunk_x = rng.range(1, width - 1);
-        let mut drunk_y = rng.range(1, height - 1);
+        let mut drunk_x = rng.range(0, width);
+        let mut drunk_y = rng.range(0, height);
         let mut lifetime = 300; 
 
         while lifetime > 0 {
@@ -92,11 +81,14 @@ pub fn drunkard_walk_step(map: &mut Map, step: usize, seed: u64) -> f32 {
             }
 
             match rng.range(0, 4) {
-                0 => if drunk_x > 1 { drunk_x -= 1; }
-                1 => if drunk_x < width - 2 { drunk_x += 1; }
-                2 => if drunk_y > 1 { drunk_y -= 1; }
-                _ => if drunk_y < height - 2 { drunk_y += 1; }
+                0 => drunk_x -= 1,
+                1 => drunk_x += 1,
+                2 => drunk_y -= 1,
+                _ => drunk_y += 1,
             }
+            
+            drunk_x = drunk_x.rem_euclid(width);
+            drunk_y = drunk_y.rem_euclid(height);
 
             lifetime -= 1;
             if (floor_count as f32) >= target_floor { break; }
@@ -115,18 +107,18 @@ pub fn add_regional_exits(map: &mut Map) {
     let mid_x = width / 2;
     let mid_y = height / 2;
 
-    // Norte-Sur con Jitter
+    // Norte-Sur con Jitter (Toroidal)
     for y in 0..height {
         let jitter = rng.range(-2, 3);
-        let x = (mid_x + jitter).clamp(1, width - 2);
+        let x = mid_x + jitter;
         let idx = map.xy_idx(x, y);
         map.tiles[idx] = TileType::Floor;
     }
 
-    // Este-Oeste con Jitter
+    // Este-Oeste con Jitter (Toroidal)
     for x in 0..width {
         let jitter = rng.range(-2, 3);
-        let y = (mid_y + jitter).clamp(1, height - 2);
+        let y = mid_y + jitter;
         let idx = map.xy_idx(x, y);
         map.tiles[idx] = TileType::Floor;
     }
@@ -138,7 +130,7 @@ pub fn ensure_connectivity_step(map: &mut Map) {
     let mid_y = map.height / 2;
     let start_idx = map.xy_idx(mid_x, mid_y);
     
-    // 1. Identificar Islas (Flood Fill)
+    // 1. Identificar Islas (Flood Fill con Wrap)
     let mut visited = vec![false; map.tiles.len()];
     let mut groups = Vec::new();
 
@@ -156,12 +148,10 @@ pub fn ensure_connectivity_step(map: &mut Map) {
                 for (ix, iy) in [(-1, 0), (1, 0), (0, -1), (0, 1)] {
                     let nx = x + ix;
                     let ny = y + iy;
-                    if nx >= 0 && nx < map.width && ny >= 0 && ny < map.height {
-                        let n_idx = map.xy_idx(nx, ny);
-                        if map.tiles[n_idx] != TileType::Wall && !visited[n_idx] {
-                            visited[n_idx] = true;
-                            q.push_back(n_idx);
-                        }
+                    let n_idx = map.xy_idx(nx, ny);
+                    if map.tiles[n_idx] != TileType::Wall && !visited[n_idx] {
+                        visited[n_idx] = true;
+                        q.push_back(n_idx);
                     }
                 }
             }
@@ -206,12 +196,14 @@ pub fn ensure_connectivity_step(map: &mut Map) {
     map.update_map_metadata(None);
 }
 
-fn count_neighbors_static(tiles: &[TileType], width: i32, x: i32, y: i32) -> usize {
+fn count_neighbors_static(tiles: &[TileType], width: i32, height: i32, x: i32, y: i32) -> usize {
     let mut neighbors = 0;
     for iy in -1..=1 {
         for ix in -1..=1 {
             if ix == 0 && iy == 0 { continue; }
-            let idx = ((y + iy) * width + (x + ix)) as usize;
+            let nx = (x + ix).rem_euclid(width);
+            let ny = (y + iy).rem_euclid(height);
+            let idx = (ny * width + nx) as usize;
             if tiles[idx] == TileType::Wall { neighbors += 1; }
         }
     }
