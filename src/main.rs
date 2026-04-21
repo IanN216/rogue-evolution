@@ -1,101 +1,89 @@
-mod states;
 mod core;
-mod components;
-mod systems;
-mod utils;
 
 use bracket_lib::prelude::*;
-use states::RunState;
-use crate::core::world::WorldManager;
-use crate::core::chronometry::TimeState;
-use crate::utils::config::Settings;
-use crate::utils::ui_constants::*;
+use crate::core::map::{Map, TileType};
+use crate::core::map_gen::build_planet;
 
 struct State {
-    pub run_state: RunState,
-    pub world_manager: WorldManager,
-    pub time_state: TimeState,
-    pub fullscreen: bool,
+    map: Map,
+    camera_x: i32,
+    camera_y: i32,
 }
 
 impl GameState for State {
     fn tick(&mut self, ctx: &mut BTerm) {
-        // 1. Cierre del Sistema (F4 + Alt)
-        if ctx.key == Some(VirtualKeyCode::F4) && ctx.alt {
-            ctx.quit();
-            return;
-        }
+        ctx.cls();
 
-        // 2. Detección de Entrada Global (Fullscreen Toggle)
+        // 1. Detección de Entrada (Movimiento de Cámara Toroidal)
         if let Some(key) = ctx.key {
             match key {
-                VirtualKeyCode::F11 | VirtualKeyCode::Return if ctx.alt => {
-                    self.fullscreen = !self.fullscreen;
-                    let mut settings = Settings::load();
-                    settings.fullscreen = self.fullscreen;
-                    settings.save();
-                    // El cambio real de ventana requiere reinicio en bracket-lib 0.8 para aplicar fitscreen
+                VirtualKeyCode::Left | VirtualKeyCode::A => self.camera_x -= 2,
+                VirtualKeyCode::Right | VirtualKeyCode::D => self.camera_x += 2,
+                VirtualKeyCode::Up | VirtualKeyCode::W => self.camera_y -= 2,
+                VirtualKeyCode::Down | VirtualKeyCode::S => self.camera_y += 2,
+                VirtualKeyCode::R => {
+                    // Regenerar planeta con nueva semilla
+                    let seed = rand::random::<u64>();
+                    self.map = build_planet(seed);
                 }
+                VirtualKeyCode::Escape => ctx.quit(),
                 _ => {}
             }
         }
 
-        if self.run_state == RunState::Quit {
-            ctx.quit();
-            return;
-        }
+        // Mantener la cámara envuelta (aunque el render soporta coordenadas absolutas,
+        // es más limpio normalizar la cámara).
+        self.camera_x = self.camera_x.rem_euclid(self.map.width);
+        self.camera_y = self.camera_y.rem_euclid(self.map.height);
 
-        // 3. Ejecución de la Lógica del Estado Actual
-        let new_runstate = match &self.run_state {
-            RunState::MainMenu { selection } => states::main_menu::tick(ctx, &mut self.world_manager, selection.clone()),
-            RunState::CharacterCreation { selection } => states::character_creation::tick(ctx, &mut self.world_manager, *selection),
-            RunState::MapGen { phase, progress, phase_step } => states::map_gen_screen::tick(ctx, &mut self.world_manager, *phase, *progress, *phase_step),
-            RunState::InGame | RunState::PlayerTurn | RunState::MonsterTurn => {
-                states::ingame::tick(ctx, &mut self.world_manager, &mut self.time_state, self.run_state.clone())
+        // 2. Renderizado Toroidal
+        let screen_width = 80;
+        let screen_height = 50;
+        
+        let offset_x = self.camera_x - (screen_width / 2);
+        let offset_y = self.camera_y - (screen_height / 2);
+
+        for y in 0..screen_height {
+            for x in 0..screen_width {
+                // Cálculo puramente toroidal
+                let world_x = (x + offset_x).rem_euclid(self.map.width);
+                let world_y = (y + offset_y).rem_euclid(self.map.height);
+                
+                let idx = self.map.xy_idx(world_x, world_y);
+                let tile = self.map.tiles[idx];
+
+                let (glyph, fg, bg) = match tile {
+                    TileType::Floor => (to_cp437('.'), RGB::named(DARK_GRAY), RGB::named(BLACK)),
+                    TileType::StonyFloor => (to_cp437('.'), RGB::named(GRAY), RGB::named(BLACK)),
+                    TileType::MuddyFloor => (to_cp437('~'), RGB::named(CHOCOLATE), RGB::named(BLACK)),
+                    TileType::Wall => (to_cp437('#'), RGB::named(GREEN), RGB::named(DARK_GREEN)),
+                    TileType::DeepWater => (to_cp437('~'), RGB::named(BLUE), RGB::named(DARK_BLUE)),
+                    TileType::ShallowWater => (to_cp437('~'), RGB::named(CYAN), RGB::named(BLUE)),
+                };
+                
+                ctx.set(x, y, fg, bg, glyph);
             }
-
-            RunState::Laboratory => states::laboratory::tick(ctx, &mut self.world_manager),
-            RunState::MapInspector { zoom, cursor } => states::map_inspector::tick(ctx, &mut self.world_manager, *zoom, *cursor),
-            RunState::Options { selection } => states::options::tick(ctx, *selection),
-            RunState::PauseMenu { selection } => states::pause_menu::tick(ctx, &mut self.world_manager, *selection),
-            RunState::Quit => None, 
-        };
-
-        if let Some(new_state) = new_runstate {
-            self.run_state = new_state;
         }
 
-        // 4. FIX: Vuelco obligatorio del búfer de dibujo DrawBatch a la GPU
-        render_draw_buffer(ctx).expect("Render failure");
+        // HUD
+        ctx.draw_box(0, 0, 79, 2, RGB::named(WHITE), RGB::named(BLACK));
+        ctx.print(2, 1, &format!("Planeta: {}x{} | Cámara: ({}, {})", self.map.width, self.map.height, self.camera_x, self.camera_y));
+        ctx.print(40, 1, "WASD: Mover | R: Regenerar | ESC: Salir");
     }
 }
 
 fn main() -> BError {
-    let settings = Settings::load();
-    
-    // Configuración de Consolas con Resolución Lógica Fija y Auto-Escalado
-    let context = BTermBuilder::new()
-        .with_title("Rogue-Evolution")
-        .with_dimensions(LOGICAL_WIDTH, LOGICAL_HEIGHT)
-        .with_tile_dimensions(8, 16)
-        .with_font("vga8x16.png", 8, 16)
-        .with_fullscreen(settings.fullscreen)
-        .with_fitscreen(true) // Crucial: Adapta la rejilla lógica al tamaño físico del monitor
-        .with_advanced_input(true)
+    let context = BTermBuilder::simple80x50()
+        .with_title("Rogue-Evolution: Planet Engine")
         .with_fps_cap(60.0)
-        // Capa 0: Mundo (Suelo/Paredes)
-        .with_simple_console(LOGICAL_WIDTH, LOGICAL_HEIGHT, "vga8x16.png")
-        // Capa 1: Entidades (NPCs/Jugador)
-        .with_simple_console_no_bg(LOGICAL_WIDTH, LOGICAL_HEIGHT, "vga8x16.png")
-        // Capa 2: UI (Menús/HUD)
-        .with_simple_console_no_bg(LOGICAL_WIDTH, LOGICAL_HEIGHT, "vga8x16.png")
         .build()?;
 
+    let seed = 12345;
     let gs = State {
-        run_state: RunState::MainMenu { selection: states::MainMenuSelection::NewGame },
-        world_manager: WorldManager::new(LOGICAL_WIDTH, LOGICAL_HEIGHT),
-        time_state: TimeState::new(),
-        fullscreen: settings.fullscreen,
+        map: build_planet(seed),
+        camera_x: 0,
+        camera_y: 0,
     };
+    
     main_loop(context, gs)
 }

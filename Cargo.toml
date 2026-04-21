@@ -14,7 +14,7 @@ rand = "0.8"
 
 [profile.release]
 opt-level = 3
-lto = true          # Link Time Optimization masivo
-codegen-units = 1   # Máxima optimización a costa de tiempo de compilación
-panic = "abort"     # Reduce el tamaño del binario y mejora la velocidad
-strip = true        # Elimina símbolos innecesarios para ahorrar espacio en disco
+lto = true
+codegen-units = 1
+panic = "abort"
+strip = true
