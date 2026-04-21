@@ -1,9 +1,10 @@
 use crate::core::world_map::{PLANET_TILE_WIDTH, PLANET_TILE_HEIGHT, ChunkKey, CHUNK_SIZE};
 use bracket_lib::prelude::*;
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 use hecs::World;
+use serde::{Serialize, Deserialize};
 
-#[derive(PartialEq, Copy, Clone, Debug)]
+#[derive(PartialEq, Copy, Clone, Debug, Serialize, Deserialize)]
 pub enum TileType {
     DeepWater,
     ShallowWater,
@@ -23,15 +24,17 @@ pub enum TileType {
 
 pub struct Map {
     pub chunks: HashMap<ChunkKey, Vec<TileType>>,
+    pub modified_chunks: HashSet<ChunkKey>,
     pub width: i32,
     pub height: i32,
-    pub world: World, // hecs ECS World
+    pub world: World,
 }
 
 impl Map {
     pub fn new_planet() -> Map {
         Map {
             chunks: HashMap::new(),
+            modified_chunks: HashSet::new(),
             width: PLANET_TILE_WIDTH,
             height: PLANET_TILE_HEIGHT,
             world: World::new(),
@@ -49,16 +52,17 @@ impl Map {
             let idx = (local_y * CHUNK_SIZE + local_x) as usize;
             chunk[idx]
         } else {
-            TileType::DeepWater // Fallback for ungenerated chunks
+            TileType::DeepWater 
         }
+    }
+
+    pub fn mark_modified(&mut self, key: ChunkKey) {
+        self.modified_chunks.insert(key);
     }
 }
 
 impl BaseMap for Map {
     fn is_opaque(&self, _idx: usize) -> bool {
-        // This is tricky with chunks. BaseMap might need a different approach 
-        // if bracket-lib algorithms expect a flat array.
-        // For now, let's keep it simple or implement it if needed.
         false
     }
 }

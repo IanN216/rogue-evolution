@@ -7,7 +7,9 @@ pub const PLANET_TILE_HEIGHT: i32 = PARASANGA_SIZE * WORLD_HEIGHT_REGIONS;
 pub const CHUNK_SIZE: i32 = 32;
 pub const VIEW_DISTANCE: i32 = 3; // Number of chunks to load around the player
 
-#[derive(PartialEq, Eq, Hash, Copy, Clone, Debug)]
+use serde::{Serialize, Deserialize};
+
+#[derive(PartialEq, Eq, Hash, Copy, Clone, Debug, Serialize, Deserialize)]
 pub struct ChunkKey {
     pub x: i32,
     pub y: i32,

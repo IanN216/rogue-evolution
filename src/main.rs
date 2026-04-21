@@ -7,7 +7,8 @@ use crate::core::world_map::{ChunkKey, VIEW_DISTANCE, CHUNK_SIZE};
 
 struct Player {}
 struct Position { x: i32, y: i32 }
-struct ChunkEntity {}
+struct ChunkEntity { key: ChunkKey }
+struct Flora { name: String }
 
 struct State {
     map: Map,
@@ -17,9 +18,45 @@ struct State {
 }
 
 impl State {
+    fn populate_chunk_entities(&mut self, key: ChunkKey) {
+        let chunk_data = self.map.chunks.get(&key).unwrap();
+        let mut rng = RandomNumberGenerator::seeded(self.seed + key.x as u64 + key.y as u64);
+
+        for y in 0..CHUNK_SIZE {
+            for x in 0..CHUNK_SIZE {
+                let idx = (y * CHUNK_SIZE + x) as usize;
+                let tile = chunk_data[idx];
+                
+                // Spawn flora based on biome
+                if (tile == TileType::Forest || tile == TileType::Jungle) && rng.range(0, 100) < 10 {
+                    self.map.world.spawn((
+                        Flora { name: "Tree".to_string() },
+                        Position { x: key.x * CHUNK_SIZE + x, y: key.y * CHUNK_SIZE + y },
+                        ChunkEntity { key }
+                    ));
+                }
+            }
+        }
+    }
+
+    fn save_modified_chunks(&self) {
+        let mut to_save = Vec::new();
+        for key in &self.map.modified_chunks {
+            if let Some(data) = self.map.chunks.get(key) {
+                to_save.push((key, data));
+            }
+        }
+
+        if !to_save.is_empty() {
+            if let Ok(encoded) = bincode::serialize(&to_save) {
+                let _ = std::fs::write("modified_chunks.bin", encoded);
+                println!("Saved {} modified chunks.", to_save.len());
+            }
+        }
+    }
+
     fn update_chunks(&mut self) {
         let center_key = ChunkKey::from_world_coords(self.camera_x, self.camera_y);
-        
         let mut loaded_keys = std::collections::HashSet::new();
 
         for y in -VIEW_DISTANCE..=VIEW_DISTANCE {
@@ -30,25 +67,24 @@ impl State {
                 if !self.map.chunks.contains_key(&key) {
                     let chunk_data = generate_chunk(key, self.seed);
                     self.map.chunks.insert(key, chunk_data);
-                    
-                    // Spawn a "Chunk Loaded" entity as an example of ECS integration
-                    self.map.world.spawn((ChunkEntity {}, Position { x: key.x * CHUNK_SIZE, y: key.y * CHUNK_SIZE }));
+                    self.populate_chunk_entities(key);
                 }
             }
         }
 
-        // Unload far away entities (despawn entities that are not in the current view distance)
-        // This is a very basic example of unloading logic
+        // Unload entities and chunks out of radius
         let mut to_despawn = Vec::new();
-        for (entity, (pos, _)) in self.map.world.query::<(&Position, &ChunkEntity)>().iter() {
-            let key = ChunkKey::from_world_coords(pos.x, pos.y);
-            if !loaded_keys.contains(&key) {
+        for (entity, (_, chunk_ent)) in self.map.world.query::<(&Position, &ChunkEntity)>().iter() {
+            if !loaded_keys.contains(&chunk_ent.key) {
                 to_despawn.push(entity);
             }
         }
         for entity in to_despawn {
             let _ = self.map.world.despawn(entity);
         }
+
+        // Note: Chunks themselves could be removed from self.map.chunks if not modified
+        // to save memory, keeping only those in loaded_keys or modified_chunks.
     }
 }
 
@@ -66,6 +102,9 @@ impl GameState for State {
                 VirtualKeyCode::R => {
                     self.seed = rand::random::<u64>();
                     self.map = build_planet(self.seed);
+                }
+                VirtualKeyCode::K => {
+                    self.save_modified_chunks();
                 }
                 VirtualKeyCode::Escape => ctx.quit(),
                 _ => {}
