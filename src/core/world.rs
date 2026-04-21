@@ -6,6 +6,7 @@ use crate::components::identity::Identity;
 use crate::components::kingdom::KingdomMember;
 use crate::components::progression::{Experience, AbilityRegistry, Humanoid};
 use crate::components::items::{Item, Weapon, Blighted, InfectionSource};
+use crate::core::map::Map;
 use crate::core::world_map::{WorldMap, RegionData, EntitySnapshot, PARASANGA_SIZE, WORLD_WIDTH_REGIONS, WORLD_HEIGHT_REGIONS};
 use crate::utils::persistence::{save_region_async, load_region};
 
@@ -15,17 +16,23 @@ pub struct WorldManager {
 }
 
 impl WorldManager {
-    pub fn new(width: i32, height: i32) -> Self {
+    pub fn new(_width: i32, _height: i32) -> Self {
         Self {
             world: World::new(),
-            world_map: WorldMap::new(width, height),
+            world_map: WorldMap {
+                map: Map::new_planet(),
+                regions: std::collections::HashMap::new(),
+                loaded_regions: std::collections::HashSet::new(),
+            },
         }
     }
 
-    /// Vacía el mundo de entidades y reinicia el mapa (útil al volver al menú principal)
-    pub fn clear(&mut self, width: i32, height: i32) {
+    /// Vacía el mundo de entidades y reinicia el mapa al tamaño planetario (Spec-10)
+    pub fn clear(&mut self, _width: i32, _height: i32) {
         self.world = World::new();
-        self.world_map = WorldMap::new(width, height);
+        self.world_map.map = Map::new_planet();
+        self.world_map.regions.clear();
+        self.world_map.loaded_regions.clear();
     }
 
     /// Sistema de movimiento masivo optimizado para Celeron (Zero-Allocation)
@@ -98,11 +105,21 @@ impl WorldManager {
         }
 
         for ((rx, ry), entities) in snapshots_by_region {
-            // FIX: Guardar teselas actuales para evitar vacíos al recargar
+            // FIX: Extraer solo las teselas de la región 64x64 desde el mapa planetario
+            let mut region_tiles = Vec::with_capacity((PARASANGA_SIZE * PARASANGA_SIZE) as usize);
+            for y in 0..PARASANGA_SIZE {
+                for x in 0..PARASANGA_SIZE {
+                    let global_x = rx * PARASANGA_SIZE + x;
+                    let global_y = ry * PARASANGA_SIZE + y;
+                    let g_idx = self.world_map.map.xy_idx(global_x, global_y);
+                    region_tiles.push(self.world_map.map.tiles[g_idx]);
+                }
+            }
+
             save_region_async(RegionData { 
                 x: rx, 
                 y: ry, 
-                tiles: self.world_map.map.tiles.clone(), 
+                tiles: region_tiles, 
                 entities 
             });
             self.world_map.loaded_regions.remove(&(rx, ry));
@@ -121,6 +138,16 @@ impl WorldManager {
                     
                     if !self.world_map.loaded_regions.contains(&(rx, ry)) {
                         if let Ok(region) = load_region(rx, ry) {
+                            // Sincronizar teselas cargadas al mapa planetario
+                            for (idx, tile) in region.tiles.iter().enumerate() {
+                                let local_x = idx as i32 % PARASANGA_SIZE;
+                                let local_y = idx as i32 / PARASANGA_SIZE;
+                                let global_x = rx * PARASANGA_SIZE + local_x;
+                                let global_y = ry * PARASANGA_SIZE + local_y;
+                                let g_idx = self.world_map.map.xy_idx(global_x, global_y);
+                                self.world_map.map.tiles[g_idx] = *tile;
+                            }
+
                             for snp in region.entities {
                                 // Usamos una tupla de componentes comunes para que nazca en un arquetipo estable.
                                 let e = self.world.spawn((

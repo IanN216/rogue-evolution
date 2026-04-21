@@ -1,7 +1,7 @@
 use super::map::{Map, TileType};
 use bracket_lib::prelude::*;
 use rayon::prelude::*;
-use noise::{NoiseFn, Simplex, Seedable};
+use noise::{NoiseFn, Simplex};
 
 /// Fase 1: Composición de Ruido (Biomas) y Estructura Venosa Inicial
 pub fn generate_caverns_step(map: &mut Map, iteration: usize, seed: u64) -> f32 {
@@ -50,7 +50,15 @@ pub fn generate_caverns_step(map: &mut Map, iteration: usize, seed: u64) -> f32 
         } else {
             // Mantener el bioma original si no es muro
             if *tile == TileType::Wall {
-                *tile = TileType::Floor; // Placeholder, real logic would re-sample noise
+                // Re-muestrear bioma basado en ruido global para costuras invisibles
+                let simplex_moisture = Simplex::new(seed as u32);
+                let simplex_temp = Simplex::new((seed >> 32) as u32);
+                let moisture = simplex_moisture.get([x as f64 / 20.0, y as f64 / 20.0]);
+                let temp = simplex_temp.get([x as f64 / 20.0, y as f64 / 20.0]);
+                
+                if moisture > 0.3 { *tile = TileType::MuddyFloor; }
+                else if temp < -0.2 { *tile = TileType::StonyFloor; }
+                else { *tile = TileType::Floor; }
             }
         }
     });

@@ -69,6 +69,9 @@ pub fn tick(ctx: &mut BTerm, world_manager: &mut WorldManager, time_state: &mut 
             );
             crate::systems::biology::evolution::process_evolution(&mut world_manager.world, time_state.ticks);
 
+            // Unificación de Coordenadas Toroidales (Arquitectura Senior)
+            crate::systems::coordinate_unification(&mut world_manager.world);
+
             Some(RunState::InGame)
         }
         _ => None
@@ -79,8 +82,8 @@ fn try_move_player(dx: i32, dy: i32, world_manager: &mut WorldManager) -> Option
     let query = world_manager.world.query_mut::<(&mut Position, &mut Viewshed, &Identity)>();
     for (_entity, (pos, viewshed, id)) in query {
         if id.name == "Hero" {
-            let new_x = pos.x + dx;
-            let new_y = pos.y + dy;
+            let new_x = (pos.x + dx).rem_euclid(world_manager.world_map.map.width);
+            let new_y = (pos.y + dy).rem_euclid(world_manager.world_map.map.height);
             
             // Validar colisión con el mapa real
             if world_manager.world_map.map.is_exit_valid(new_x, new_y) {
@@ -112,25 +115,19 @@ fn render(ctx: &mut BTerm, world_manager: &mut WorldManager, player_pos: Positio
 
     for y in 0..screen_height {
         for x in 0..screen_width {
-            let world_x = x + offset_x;
-            let world_y = y + offset_y;
+            let world_x = (x + offset_x).rem_euclid(world_manager.world_map.map.width);
+            let world_y = (y + offset_y).rem_euclid(world_manager.world_map.map.height);
             
-            // Sugerencia: Guardas de seguridad robustas para el Celeron
-            if world_x >= 0 && world_x < world_manager.world_map.map.width && 
-               world_y >= 0 && world_y < world_manager.world_map.map.height {
-                
-                if visible_tiles.contains(&(world_x, world_y)) {
-                    let idx = world_manager.world_map.map.xy_idx(world_x, world_y);
-                    // Acceso seguro al vector plano (DOD)
-                    if let Some(tile) = world_manager.world_map.map.tiles.get(idx) {
-                        let (glyph, fg) = match tile {
-                            TileType::Floor => (to_cp437('.'), RGB::named(DARK_GRAY)),
-                            TileType::StonyFloor => (to_cp437('.'), RGB::named(GRAY)),
-                            TileType::MuddyFloor => (to_cp437('~'), RGB::named(CHOCOLATE)),
-                            TileType::Wall => (to_cp437('#'), RGB::named(GREEN)),
-                        };
-                        ctx.set(x, y, fg, RGB::named(BLACK), glyph);
-                    }
+            if visible_tiles.contains(&(world_x, world_y)) {
+                let idx = world_manager.world_map.map.xy_idx(world_x, world_y);
+                if let Some(tile) = world_manager.world_map.map.tiles.get(idx) {
+                    let (glyph, fg) = match tile {
+                        TileType::Floor => (to_cp437('.'), RGB::named(DARK_GRAY)),
+                        TileType::StonyFloor => (to_cp437('.'), RGB::named(GRAY)),
+                        TileType::MuddyFloor => (to_cp437('~'), RGB::named(CHOCOLATE)),
+                        TileType::Wall => (to_cp437('#'), RGB::named(GREEN)),
+                    };
+                    ctx.set(x, y, fg, RGB::named(BLACK), glyph);
                 }
             }
         }
@@ -140,8 +137,15 @@ fn render(ctx: &mut BTerm, world_manager: &mut WorldManager, player_pos: Positio
     ctx.set_active_console(1);
     ctx.cls();
     for (_entity, (pos, render, id)) in world_manager.world.query::<(&Position, &Renderable, Option<&Identity>)>().iter() {
-        let sx = pos.x - offset_x;
-        let sy = pos.y - offset_y;
+        // Calculamos la posición relativa en pantalla considerando el wrap-around toroidal
+        let mut sx = pos.x - offset_x;
+        let mut sy = pos.y - offset_y;
+
+        // Si la entidad está muy lejos del centro de la cámara por el wrap, la re-centramos
+        if sx < -screen_width / 2 { sx += world_manager.world_map.map.width; }
+        if sx >= world_manager.world_map.map.width - screen_width / 2 { sx -= world_manager.world_map.map.width; }
+        if sy < -screen_height / 2 { sy += world_manager.world_map.map.height; }
+        if sy >= world_manager.world_map.map.height - screen_height / 2 { sy -= world_manager.world_map.map.height; }
         
         if sx >= 0 && sx < screen_width && sy >= 0 && sy < screen_height {
             if visible_tiles.contains(&(pos.x, pos.y)) || (id.is_some() && id.unwrap().name == "Hero") {

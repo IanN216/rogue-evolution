@@ -11,6 +11,8 @@ pub enum TileType {
     MuddyFloor,
 }
 
+use crate::core::world_map::{PARASANGA_SIZE, WORLD_WIDTH_REGIONS, WORLD_HEIGHT_REGIONS};
+
 pub struct Map {
     pub tiles: Vec<TileType>,
     pub width: i32,
@@ -24,6 +26,22 @@ pub struct Map {
 impl Map {
     pub fn xy_idx(&self, x: i32, y: i32) -> usize {
         (y.rem_euclid(self.height) as usize * self.width as usize) + x.rem_euclid(self.width) as usize
+    }
+
+    /// Crea un nuevo mapa del tamaño completo del planeta
+    pub fn new_planet() -> Map {
+        let width = PARASANGA_SIZE * WORLD_WIDTH_REGIONS;
+        let height = PARASANGA_SIZE * WORLD_HEIGHT_REGIONS;
+        let map_tile_count = (width * height) as usize;
+        Map {
+            tiles: vec![TileType::Wall; map_tile_count],
+            width,
+            height,
+            revealed_tiles: vec![false; map_tile_count],
+            visible_tiles: vec![false; map_tile_count],
+            blocked: vec![false; map_tile_count],
+            interest_points: Vec::new(),
+        }
     }
 
     pub fn new(width: i32, height: i32) -> Map {
@@ -49,19 +67,22 @@ impl Map {
     pub fn update_map_metadata(&mut self, world: Option<&World>) {
         let count = self.tiles.len();
         
-        // Sincronización robusta de dimensiones para evitar pánicos tras carga de regiones
+        // Sincronización robusta de dimensiones
         if self.blocked.len() != count { self.blocked.resize(count, false); }
         if self.revealed_tiles.len() != count { self.revealed_tiles.resize(count, false); }
         if self.visible_tiles.len() != count { self.visible_tiles.resize(count, false); }
 
         // Fase 1: Sincronizar bloqueos basados en la topología estática (muros)
-        for (i, tile) in self.tiles.iter().enumerate() {
-            self.blocked[i] = *tile == TileType::Wall;
-        }
+        // Optimizamos usando rayon para el Celeron dual-core
+        use rayon::prelude::*;
+        self.blocked.par_iter_mut().enumerate().for_each(|(i, b)| {
+            *b = self.tiles[i] == TileType::Wall;
+        });
 
         // Fase 2: Integrar bloqueos dinámicos desde el ECS (entidades con BlocksTile)
         if let Some(world) = world {
             for (_entity, (pos, _)) in world.query::<(&Position, &BlocksTile)>().iter() {
+                // Aplicamos rem_euclid por seguridad si el sistema de unificación no ha corrido
                 let idx = self.xy_idx(pos.x, pos.y);
                 self.blocked[idx] = true;
             }
