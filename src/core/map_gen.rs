@@ -1,146 +1,97 @@
 use super::map::{Map, TileType};
+use crate::core::world_map::*;
 use bracket_lib::prelude::*;
 use rayon::prelude::*;
 use noise::{NoiseFn, Simplex};
+use std::f64::consts::PI;
 
-/// Generador Planetario Sin Costuras (Toroidal)
 pub fn build_planet(seed: u64) -> Map {
     let mut map = Map::new_planet();
-    
-    apply_global_noise(&mut map, seed);
-    for _ in 0..5 {
-        apply_toroidal_cellular_automata(&mut map);
-    }
-    apply_toroidal_drunkards_walk(&mut map, seed);
-    
+    apply_advanced_geology(&mut map, seed);
     map
 }
 
-/// 1. Ruido Global Continuo: Biomas base sin costuras
-fn apply_global_noise(map: &mut Map, seed: u64) {
-    let width = map.width;
+/// Función Helper: Fractal Brownian Motion en 4D para continuidad toroidal total.
+/// Mapeamos el plano 2D a un toroide en 4D para eliminar costuras.
+fn fbm_4d(noise: &Simplex, x: f64, y: f64, z: f64, w: f64, octaves: usize) -> f64 {
+    let mut total = 0.0;
+    let mut frequency = 1.0;
+    let mut amplitude = 1.0;
+    let mut max_amplitude = 0.0;
+
+    for _ in 0..octaves {
+        total += noise.get([x * frequency, y * frequency, z * frequency, w * frequency]) * amplitude;
+        max_amplitude += amplitude;
+        amplitude *= FBM_PERSISTENCE;
+        frequency *= FBM_LACUNARITY;
+    }
+
+    total / max_amplitude
+}
+
+fn apply_advanced_geology(map: &mut Map, seed: u64) {
+    let width = map.width as f64;
+    let height = map.height as f64;
     
-    let simplex_moisture = Simplex::new(seed as u32);
-    let simplex_temp = Simplex::new((seed >> 32) as u32);
-    let simplex_elevation = Simplex::new((seed ^ 0xDEADBEEF) as u32);
+    // Generadores independientes para cada capa geográfica
+    let n_elev = Simplex::new(seed as u32);
+    let n_moist = Simplex::new((seed >> 16) as u32);
+    let n_warp_q = Simplex::new((seed ^ 0x5555) as u32);
+    let n_warp_r = Simplex::new((seed ^ 0xAAAA) as u32);
 
     map.tiles.par_iter_mut().enumerate().for_each(|(idx, tile)| {
-        let x = idx as i32 % width;
-        let y = idx as i32 / width;
+        let x = (idx as i32 % map.width) as f64;
+        let y = (idx as i32 / map.width) as f64;
 
-        // Para evitar distorsión en los bordes de un mapa 2D, lo proyectamos a un cilindro/toroide 
-        // usando ángulos, pero para mantener rendimiento en Celeron usamos coordenadas 
-        // escaladas (OpenSimplex maneja bien la continuidad si la frecuencia es baja, aunque un 
-        // mapeo esférico real requeriría sin/cos. Por simplicidad planetaria, usamos coordenadas directas).
-        let nx = x as f64 / 40.0;
-        let ny = y as f64 / 40.0;
-
-        let elevation = simplex_elevation.get([nx, ny]);
-        let moisture = simplex_moisture.get([nx, ny]);
-        let temp = simplex_temp.get([nx, ny]);
-
-        if elevation < -0.4 {
-            *tile = TileType::DeepWater;
-        } else if elevation < -0.1 {
-            *tile = TileType::ShallowWater;
-        } else if elevation > 0.6 {
-            *tile = TileType::Wall;
-        } else {
-            if moisture > 0.3 {
-                *tile = TileType::MuddyFloor;
-            } else if temp < -0.2 {
-                *tile = TileType::StonyFloor;
-            } else {
-                *tile = TileType::Floor;
-            }
-        }
+        // 1. Proyección a Coordenadas Toroidales 4D
+        // p.x -> (cos(x), sin(x)), p.y -> (cos(y), sin(y))
+        let s = x / width;
+        let t = y / height;
         
-        // Agregar "semillas" de muros para autómatas celulares en la tierra
-        if *tile != TileType::DeepWater && *tile != TileType::ShallowWater && *tile != TileType::Wall {
+        let dx = (2.0 * PI * s).cos() * GLOBAL_NOISE_SCALE;
+        let dy = (2.0 * PI * s).sin() * GLOBAL_NOISE_SCALE;
+        let dz = (2.0 * PI * t).cos() * GLOBAL_NOISE_SCALE;
+        let dw = (2.0 * PI * t).sin() * GLOBAL_NOISE_SCALE;
+
+        // 2. Domain Warping (Noise Distortion) para formas orgánicas
+        let q_x = fbm_4d(&n_warp_q, dx, dy, dz, dw, 3);
+        let q_y = fbm_4d(&n_warp_q, dx + 5.2, dy + 1.3, dz + 0.5, dw + 2.1, 3);
+
+        let r_x = fbm_4d(&n_warp_r, dx + 4.0 * q_x + 1.7, dy + 4.0 * q_y + 9.2, dz, dw, 3);
+        let r_y = fbm_4d(&n_warp_r, dx + 4.0 * q_x + 8.3, dy + 4.0 * q_y + 2.8, dz, dw, 3);
+
+        // Coordenadas finales distorsionadas
+        let warp_x = dx + 4.0 * r_x;
+        let warp_y = dy + 4.0 * r_y;
+
+        // 3. Cálculo de Elevación y Humedad Final con FBM
+        let elevation = fbm_4d(&n_elev, warp_x, warp_y, dz, dw, FBM_OCTAVES);
+        let moisture = fbm_4d(&n_moist, dx, dy, dz, dw, FBM_OCTAVES);
+
+        // 4. Matriz de Decisión Biomas (Climograph simplificado)
+        *tile = if elevation < -0.35 {
+            TileType::DeepWater
+        } else if elevation < -0.15 {
+            TileType::ShallowWater
+        } else if elevation < -0.05 {
+            TileType::Sand
+        } else if elevation > 0.5 {
+            if elevation > 0.7 { TileType::Snow } else { TileType::Mountain }
+        } else {
+            // Tierra firme: Depende de la humedad
+            if moisture > 0.4 {
+                TileType::Forest
+            } else if moisture < -0.3 {
+                TileType::StonyFloor // Representa desierto o estepa seca
+            } else {
+                TileType::Grass
+            }
+        };
+
+        // Post-procesado: Semillas de vegetación o rocas
+        if *tile == TileType::Grass || *tile == TileType::Forest {
             let mut rng = RandomNumberGenerator::seeded(seed + idx as u64);
-            if rng.range(0, 100) < 45 {
-                *tile = TileType::Wall;
-            }
+            if rng.range(0, 100) < 5 { *tile = TileType::Wall; }
         }
     });
-}
-
-/// 2. Autómatas Celulares Toroidales
-fn apply_toroidal_cellular_automata(map: &mut Map) {
-    let mut new_tiles = map.tiles.clone();
-    let width = map.width;
-    let height = map.height;
-
-    new_tiles.par_iter_mut().enumerate().for_each(|(idx, tile)| {
-        let x = idx as i32 % width;
-        let y = idx as i32 / width;
-
-        // No procesar agua
-        if *tile == TileType::DeepWater || *tile == TileType::ShallowWater {
-            return;
-        }
-
-        let mut neighbors = 0;
-        for iy in -1..=1 {
-            for ix in -1..=1 {
-                if ix == 0 && iy == 0 { continue; }
-                let nx = (x + ix).rem_euclid(width);
-                let ny = (y + iy).rem_euclid(height);
-                let n_idx = (ny * width + nx) as usize;
-                if map.tiles[n_idx] == TileType::Wall {
-                    neighbors += 1;
-                }
-            }
-        }
-
-        if neighbors >= 5 {
-            *tile = TileType::Wall;
-        } else if neighbors < 3 {
-            // Revertir a suelo original si no es muro (simplificado)
-            *tile = TileType::Floor;
-        }
-    });
-
-    map.tiles = new_tiles;
-}
-
-/// 3. Drunkard's Walk Planetario (Excavador Toroidal)
-fn apply_toroidal_drunkards_walk(map: &mut Map, seed: u64) {
-    let width = map.width;
-    let height = map.height;
-    let mut rng = RandomNumberGenerator::seeded(seed);
-    
-    // Queremos asegurar que gran parte de los muros terrestres sean cavernas interconectadas
-    let target_floor = (width * height) as f32 * 0.40;
-    let mut floor_count = map.tiles.iter().filter(|&&t| t == TileType::Floor || t == TileType::MuddyFloor || t == TileType::StonyFloor).count();
-
-    if (floor_count as f32) < target_floor {
-        let mut drunk_x = rng.range(0, width);
-        let mut drunk_y = rng.range(0, height);
-        let mut lifetime = 10000; // Vidas largas para crear túneles expansivos
-
-        while lifetime > 0 {
-            let idx = map.xy_idx(drunk_x, drunk_y);
-            
-            // Si es un muro, lo rompemos
-            if map.tiles[idx] == TileType::Wall {
-                map.tiles[idx] = TileType::Floor;
-                floor_count += 1;
-            }
-
-            // Movimiento puro sin límites
-            match rng.range(0, 4) {
-                0 => drunk_x -= 1,
-                1 => drunk_x += 1,
-                2 => drunk_y -= 1,
-                _ => drunk_y += 1,
-            }
-            
-            drunk_x = drunk_x.rem_euclid(width);
-            drunk_y = drunk_y.rem_euclid(height);
-
-            lifetime -= 1;
-            if (floor_count as f32) >= target_floor { break; }
-        }
-    }
 }

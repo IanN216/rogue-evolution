@@ -3,12 +3,16 @@ use bracket_lib::prelude::*;
 
 #[derive(PartialEq, Copy, Clone, Debug)]
 pub enum TileType {
-    Wall,
-    Floor,
-    StonyFloor,
-    MuddyFloor,
     DeepWater,
     ShallowWater,
+    Sand,
+    Grass,
+    Forest,
+    Mountain,
+    Snow,
+    Wall,
+    StonyFloor,
+    MuddyFloor,
 }
 
 pub struct Map {
@@ -18,7 +22,6 @@ pub struct Map {
 }
 
 impl Map {
-    /// Implementa indexación toroidal pura usando rem_euclid
     pub fn xy_idx(&self, x: i32, y: i32) -> usize {
         (y.rem_euclid(self.height) as usize * self.width as usize) + x.rem_euclid(self.width) as usize
     }
@@ -26,20 +29,17 @@ impl Map {
     pub fn new_planet() -> Map {
         let width = PLANET_TILE_WIDTH;
         let height = PLANET_TILE_HEIGHT;
-        let map_tile_count = (width * height) as usize;
-        
         Map {
-            tiles: vec![TileType::Wall; map_tile_count],
+            tiles: vec![TileType::DeepWater; (width * height) as usize],
             width,
             height,
         }
     }
 }
 
-// Permitir pathfinding si es necesario en un futuro
 impl BaseMap for Map {
     fn is_opaque(&self, idx: usize) -> bool {
-        self.tiles[idx] == TileType::Wall
+        self.tiles[idx] == TileType::Wall || self.tiles[idx] == TileType::Mountain
     }
 }
 

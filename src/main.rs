@@ -22,7 +22,6 @@ impl GameState for State {
                 VirtualKeyCode::Up | VirtualKeyCode::W => self.camera_y -= 2,
                 VirtualKeyCode::Down | VirtualKeyCode::S => self.camera_y += 2,
                 VirtualKeyCode::R => {
-                    // Regenerar planeta con nueva semilla
                     let seed = rand::random::<u64>();
                     self.map = build_planet(seed);
                 }
@@ -31,8 +30,6 @@ impl GameState for State {
             }
         }
 
-        // Mantener la cámara envuelta (aunque el render soporta coordenadas absolutas,
-        // es más limpio normalizar la cámara).
         self.camera_x = self.camera_x.rem_euclid(self.map.width);
         self.camera_y = self.camera_y.rem_euclid(self.map.height);
 
@@ -45,7 +42,6 @@ impl GameState for State {
 
         for y in 0..screen_height {
             for x in 0..screen_width {
-                // Cálculo puramente toroidal
                 let world_x = (x + offset_x).rem_euclid(self.map.width);
                 let world_y = (y + offset_y).rem_euclid(self.map.height);
                 
@@ -53,12 +49,16 @@ impl GameState for State {
                 let tile = self.map.tiles[idx];
 
                 let (glyph, fg, bg) = match tile {
-                    TileType::Floor => (to_cp437('.'), RGB::named(DARK_GRAY), RGB::named(BLACK)),
-                    TileType::StonyFloor => (to_cp437('.'), RGB::named(GRAY), RGB::named(BLACK)),
-                    TileType::MuddyFloor => (to_cp437('~'), RGB::named(CHOCOLATE), RGB::named(BLACK)),
-                    TileType::Wall => (to_cp437('#'), RGB::named(GREEN), RGB::named(DARK_GREEN)),
                     TileType::DeepWater => (to_cp437('~'), RGB::named(BLUE), RGB::named(DARK_BLUE)),
                     TileType::ShallowWater => (to_cp437('~'), RGB::named(CYAN), RGB::named(BLUE)),
+                    TileType::Sand => (to_cp437('.'), RGB::named(YELLOW), RGB::named(BLACK)),
+                    TileType::Grass => (to_cp437('"'), RGB::named(GREEN), RGB::named(BLACK)),
+                    TileType::Forest => (to_cp437('♣'), RGB::named(FOREST_GREEN), RGB::named(BLACK)),
+                    TileType::Mountain => (to_cp437('▲'), RGB::named(BROWN1), RGB::named(BLACK)),
+                    TileType::Snow => (to_cp437('*'), RGB::named(WHITE), RGB::named(BLACK)),
+                    TileType::Wall => (to_cp437('#'), RGB::named(GRAY), RGB::named(BLACK)),
+                    TileType::StonyFloor => (to_cp437('.'), RGB::named(GRAY), RGB::named(BLACK)),
+                    TileType::MuddyFloor => (to_cp437('~'), RGB::named(CHOCOLATE), RGB::named(BLACK)),
                 };
                 
                 ctx.set(x, y, fg, bg, glyph);
@@ -74,7 +74,7 @@ impl GameState for State {
 
 fn main() -> BError {
     let context = BTermBuilder::simple80x50()
-        .with_title("Rogue-Evolution: Planet Engine")
+        .with_title("Rogue-Evolution: Planet Engine (Advanced Noise)")
         .with_fps_cap(60.0)
         .build()?;
 
